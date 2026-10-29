@@ -1,0 +1,92 @@
+# Destino: stonebid-web/.github/workflows/cd.yml
+# Publica na Vercel depois do workflow "CI" verde: main = produção, staging = preview.
+name: CD
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main, staging]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cd-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    env:
+      BRANCH: ${{ github.event.workflow_run.head_branch }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Instalar Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Escolher ambiente
+        id: amb
+        env:
+          API_PROD: ${{ vars.VITE_API_URL }}
+          API_STAGING: ${{ vars.VITE_API_URL_STAGING }}
+        run: |
+          if [ "$BRANCH" = "main" ]; then
+            { echo "target=production"; echo "prod=--prod"; echo "api=$API_PROD"; } >> "$GITHUB_OUTPUT"
+          else
+            { echo "target=preview"; echo "prod="; echo "api=$API_STAGING"; } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: vercel pull
+        run: vercel pull --yes --environment="${{ steps.amb.outputs.target }}" --token="$VERCEL_TOKEN"
+
+      - name: vercel build
+        env:
+          VITE_API_URL: ${{ steps.amb.outputs.api }}
+          PROD_FLAG: ${{ steps.amb.outputs.prod }}
+        run: |
+          # shellcheck disable=SC2086
+          vercel build $PROD_FLAG --token="$VERCEL_TOKEN"
+
+      - name: vercel deploy
+        id: deploy
+        env:
+          PROD_FLAG: ${{ steps.amb.outputs.prod }}
+        run: |
+          # shellcheck disable=SC2086
+          URL="$(vercel deploy --prebuilt $PROD_FLAG --token="$VERCEL_TOKEN")"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Alias fixo do staging
+        # O preview muda de URL a cada deploy; o alias fixo é o que vai no CORS_ORIGIN_STAGING.
+        if: env.BRANCH == 'staging' && vars.VERCEL_STAGING_ALIAS != ''
+        env:
+          URL: ${{ steps.deploy.outputs.url }}
+          ALIAS: ${{ vars.VERCEL_STAGING_ALIAS }}
+        run: vercel alias set "$URL" "$ALIAS" --token="$VERCEL_TOKEN"
+
+      - name: URL no resumo
+        env:
+          URL: ${{ steps.deploy.outputs.url }}
+          ALIAS: ${{ vars.VERCEL_STAGING_ALIAS }}
+        run: |
+          {
+            echo "### Deploy do stonebid-web ($BRANCH)"
+            echo ""
+            echo "- URL: $URL"
+            if [ "$BRANCH" = "staging" ] && [ -n "$ALIAS" ]; then echo "- Alias: https://$ALIAS"; fi
+          } >> "$GITHUB_STEP_SUMMARY"
