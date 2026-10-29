@@ -1,0 +1,7 @@
+dist
+node_modules
+package-lock.json
+src/routes/routeTree.gen.ts
+# Gerados pela CLI do shadcn: ficam como a CLI escreve.
+src/components/ui
+src/hooks/use-mobile.ts
