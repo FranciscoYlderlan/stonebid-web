@@ -96,6 +96,28 @@ export const LOT_STREAM_EVENTS = [
 export const auctioneerLotsResponseSchema = z.object({
   serverTime: z.string(),
   items: z.array(lotSchema),
+  /** Soma dos créditos de liquidação do leiloeiro (lotes arrematados). */
+  totalReceivedCents: z.number().int(),
+})
+
+/** Limites do motivo do cancelamento, iguais aos do `POST /lots/:id/cancel`. */
+export const CANCEL_REASON_MIN = 3
+export const CANCEL_REASON_MAX = 280
+
+/** Motivo do cancelamento (corpo `{ reason }`), validado no cliente como no servidor. */
+export const cancelLotFormSchema = z.object({
+  reason: z
+    .string()
+    .trim()
+    .min(1, 'Informe o motivo do cancelamento.')
+    .min(
+      CANCEL_REASON_MIN,
+      `O motivo precisa ter pelo menos ${CANCEL_REASON_MIN} caracteres.`,
+    )
+    .max(
+      CANCEL_REASON_MAX,
+      `O motivo pode ter no máximo ${CANCEL_REASON_MAX} caracteres.`,
+    ),
 })
 
 /** RN-19: situação da obra no Stonebid. Agendado e ao vivo = "Em leilão"; arrematado = "Vendido". */

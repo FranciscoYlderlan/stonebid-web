@@ -132,10 +132,13 @@ test.describe('Erro de mutação (RF-40): resposta fora do formato', () => {
     await api.install()
     await page.goto('/auctioneer')
 
-    await page.getByRole('button', { name: 'Cancelar' }).click()
-    await page.getByRole('button', { name: 'Cancelar lote' }).click()
+    await page.getByRole('button', { name: 'Cancelar', exact: true }).click()
+    const dialog = page.getByRole('alertdialog')
+    await dialog.getByLabel('Motivo do cancelamento').fill('Motivo do teste')
+    await dialog.getByRole('button', { name: 'Cancelar lote' }).click()
 
-    await expectGenericToast(page)
+    // Resposta fora do contrato: a mensagem genérica, nunca o ZodError cru.
+    await expect(dialog.getByRole('alert')).toHaveText(GENERIC)
   })
 })
 

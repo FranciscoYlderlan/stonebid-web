@@ -38,6 +38,29 @@ export type MockLot = {
   viewer: { pseudonym: string } | null
 }
 
+/** Comprovante como o `GET /receipts/:publicId` devolve (contrato do I3). */
+export type MockReceipt = {
+  publicId: string
+  lotId: string
+  title: string
+  imageUrl: string
+  finalAmountCents: number
+  settledAt: string
+  winnerPseudonym: string
+  finalHash: string
+  auditPath: string
+}
+
+/** Posição do licitante logado num lote, como o `GET /me/bids` devolve (contrato do I3). */
+export type BidPosition = 'LEADING' | 'OUTBID' | 'WON' | 'LOST' | 'CANCELED'
+
+export type MockMyBid = {
+  lot: MockLot
+  myMaxBidCents: number
+  position: BidPosition
+  receiptPublicId: string | null
+}
+
 /** Eventos do `GET /lots/:id/events` (SSE), como a stonebid-api. */
 export type LotStreamEvent = 'snapshot' | 'bid' | 'canceled' | 'settled'
 
@@ -172,6 +195,44 @@ function brl(cents: number) {
     .format(cents / 100)
     .replace(/\s/g, ' ')
 }
+
+/** Lote ENDED já liquidado com vencedor, com o comprovante (contrato do I3). */
+export function makeSoldLot(
+  id: string,
+  serverTime: Date,
+  {
+    amountCents,
+    winner,
+    receiptPublicId,
+  }: { amountCents: number; winner: string; receiptPublicId: string },
+): { lot: MockLot; receipt: MockReceipt } {
+  const settledAt = new Date(serverTime.getTime() - 30 * 60_000).toISOString()
+  const lot = makeLot(id, 'ENDED', serverTime, {
+    currentBidCents: amountCents,
+    leaderPseudonym: winner,
+    result: 'SOLD',
+    settledAt,
+    receiptPublicId,
+  })
+  return {
+    lot,
+    receipt: {
+      publicId: receiptPublicId,
+      lotId: id,
+      title: lot.title,
+      imageUrl: `/lots/${id}/image`,
+      finalAmountCents: amountCents,
+      settledAt,
+      winnerPseudonym: winner,
+      finalHash: 'a3f1'.repeat(16),
+      auditPath: `/lots/${id}/audit`,
+    },
+  }
+}
+
+/** Mensagem do 422 do cancelamento sem motivo válido (`reason` com 3 a 280 caracteres). */
+export const CANCEL_REASON_MESSAGE =
+  'Informe o motivo do cancelamento, com 3 a 280 caracteres.'
 
 /** Pseudônimo do licitante logado (HMAC em 6 dígitos hex maiúsculos, como a API). */
 export const MY_PSEUDONYM = 'Licitante 7F3A9C'
@@ -337,6 +398,12 @@ export class MockApi {
   readonly lotItems = new Map<string, string>()
   searchFails = false
   cancelConflict: string | null = null
+  /** Comprovantes por `publicId` (`GET /receipts/:publicId`, público). */
+  readonly receipts = new Map<string, MockReceipt>()
+  /** Lotes com lance do licitante logado (`GET /me/bids`), mais recentes primeiro. */
+  myBids: MockMyBid[] = []
+  /** Soma dos CREDIT de liquidação do leiloeiro (`GET /auctioneer/lots`). */
+  totalReceivedCents = 0
   /** Lances de cada lote, do mais antigo ao mais novo. */
   readonly bids = new Map<string, MockBid[]>()
   /** Lote em que o licitante logado lidera (para o `ALREADY_WINNING`). */
@@ -667,6 +734,15 @@ export class MockApi {
       return ok({ items })
     }
 
+    const receiptMatch = path.match(/^\/receipts\/([^/]+)$/)
+    if (method === 'GET' && receiptMatch) {
+      // Público e sem dado pessoal; inexistente ou adulterado dá o mesmo 404.
+      const receipt = this.receipts.get(decodeURIComponent(receiptMatch[1]!))
+      return receipt
+        ? ok({ receipt })
+        : error(404, 'RECEIPT_NOT_FOUND', 'Comprovante não encontrado.')
+    }
+
     // Daqui para baixo, só com login e o papel certo (RF-02).
     if (!this.user) return UNAUTHORIZED
 
@@ -681,7 +757,10 @@ export class MockApi {
       'Seu papel não permite esta ação.',
     )
 
-    if (path.startsWith('/wallet') && this.user.role !== 'BIDDER')
+    if (
+      (path.startsWith('/wallet') || path === '/me/bids') &&
+      this.user.role !== 'BIDDER'
+    )
       return forbidden
     if (
       (path === '/auctioneer/lots' ||
@@ -690,6 +769,9 @@ export class MockApi {
       this.user.role !== 'AUCTIONEER'
     )
       return forbidden
+
+    if (method === 'GET' && path === '/me/bids')
+      return ok({ serverTime, items: this.myBids })
 
     if (method === 'GET' && path === '/wallet') return ok(this.wallet)
     if (method === 'GET' && path === '/wallet/movements')
@@ -770,6 +852,7 @@ export class MockApi {
       return ok({
         serverTime,
         items: this.lots.filter((lot) => this.myLotIds.has(lot.id)),
+        totalReceivedCents: this.totalReceivedCents,
       })
 
     if (method === 'POST' && path === '/lots') {
@@ -817,6 +900,11 @@ export class MockApi {
 
     const cancelMatch = path.match(/^\/lots\/([^/]+)\/cancel$/)
     if (method === 'POST' && cancelMatch) {
+      // Corpo validado antes de tudo, como o schema da rota: `reason` com trim, 3 a 280.
+      const body = (request.postDataJSON() ?? {}) as { reason?: unknown }
+      const reason = typeof body.reason === 'string' ? body.reason.trim() : ''
+      if (reason.length < 3 || reason.length > 280)
+        return error(422, 'VALIDATION_ERROR', CANCEL_REASON_MESSAGE)
       const lot = this.lots.find((item) => item.id === cancelMatch[1])
       if (!lot) return error(404, 'LOT_NOT_FOUND', 'Lote não encontrado.')
       if (!this.myLotIds.has(lot.id))
@@ -830,7 +918,7 @@ export class MockApi {
       if (lot.status === 'ENDED')
         return error(
           409,
-          'LOT_NOT_CANCELABLE',
+          'LOT_ENDED',
           'O lote já foi encerrado e não pode ser cancelado.',
         )
       // Sem lances no I1: o conflito por lance é forçado pelo teste.
@@ -838,6 +926,7 @@ export class MockApi {
         return error(409, 'LOT_NOT_CANCELABLE', this.cancelConflict)
       lot.status = 'CANCELED'
       lot.canceledAt = serverTime
+      lot.cancelReason = reason
       return ok(lot)
     }
 

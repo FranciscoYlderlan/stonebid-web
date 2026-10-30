@@ -1,4 +1,5 @@
 import { Ban, CalendarClock, Gavel, Hourglass, ReceiptText } from 'lucide-react'
+import { Link } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -131,10 +132,10 @@ export function LotOutcome({ lot }: LotOutcomeProps) {
       {lot.receiptPublicId ? (
         <Button asChild variant="outline" className="h-10 w-full">
           {/* Rota pública do comprovante (RF-50). */}
-          <a href={`/receipts/${encodeURIComponent(lot.receiptPublicId)}`}>
+          <Link to="/receipts/$id" params={{ id: lot.receiptPublicId }}>
             <ReceiptText data-icon="inline-start" />
             Ver comprovante
-          </a>
+          </Link>
         </Button>
       ) : null}
     </Notice>

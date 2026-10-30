@@ -49,6 +49,9 @@ export type CreateLotInput = {
   endsAt: string
 }
 
+/** Corpo do `POST /lots/:id/cancel`, com o id do lote. */
+export type CancelLotInput = { id: string; reason: string }
+
 export type Bid = z.infer<typeof bidSchema>
 export type BidHistoryItem = z.infer<typeof bidHistoryItemSchema>
 export type PlaceBidResponse = z.infer<typeof placeBidResponseSchema>

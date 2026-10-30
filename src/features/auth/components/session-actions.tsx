@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Skeleton } from '@/components/ui/skeleton'
-import { navItemsFor } from '@/config/navigation'
+import { roleAreaItemsFor } from '@/config/navigation'
 
 import { useLogout } from '../hooks/useLogout'
 import { useSession } from '../hooks/useSession'
@@ -67,8 +67,8 @@ export function SessionActions() {
     )
   }
 
-  // Itens com `roles` são a área própria do papel; Minha conta vale para todos.
-  const roleItems = navItemsFor(user.role).filter((item) => item.roles)
+  // Só a área principal do papel vira atalho; o resto fica na sidebar (cabe a 320 px).
+  const roleItems = roleAreaItemsFor(user.role)
 
   return (
     <div className="flex min-w-0 items-center gap-1">
