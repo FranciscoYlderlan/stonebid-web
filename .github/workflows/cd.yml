@@ -77,7 +77,18 @@ jobs:
         env:
           URL: ${{ steps.deploy.outputs.url }}
           ALIAS: ${{ vars.VERCEL_STAGING_ALIAS }}
-        run: vercel alias set "$URL" "$ALIAS" --scope="$VERCEL_ORG_ID" --token="$VERCEL_TOKEN"
+        # API REST em vez de "vercel alias set": a CLI tenta carregar o usuário do token e falha com
+        # "User not found" neste token; a API só precisa do time (teamId).
+        run: |
+          HOST="${URL#https://}"
+          ID="$(curl --fail-with-body --silent --show-error \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+            "https://api.vercel.com/v13/deployments/${HOST}?teamId=${VERCEL_ORG_ID}" | jq -r '.id')"
+          curl --fail-with-body --silent --show-error \
+            -X POST "https://api.vercel.com/v2/deployments/${ID}/aliases?teamId=${VERCEL_ORG_ID}" \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "{\"alias\":\"${ALIAS}\"}"
 
       - name: URL no resumo
         env:
