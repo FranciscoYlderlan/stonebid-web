@@ -12,6 +12,7 @@ import { EmptyState } from '@/components/common/empty-state'
 import { Header } from '@/components/layout/header'
 import { Button } from '@/components/ui/button'
 import { SessionActions, type AuthContext, type User } from '@/features/auth'
+import { getLoadErrorMessage } from '@/lib/load-error'
 
 export type RouterContext = {
   queryClient: QueryClient
@@ -60,11 +61,7 @@ function RootError({ error }: ErrorComponentProps) {
       className="flex-1"
       icon={<TriangleAlert />}
       title="Algo deu errado"
-      description={
-        error instanceof Error && error.message
-          ? error.message
-          : 'Tente de novo em instantes.'
-      }
+      description={getLoadErrorMessage(error)}
       action={
         <Button onClick={() => void router.invalidate()}>Tentar de novo</Button>
       }

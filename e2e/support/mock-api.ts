@@ -178,6 +178,11 @@ export class MockApi {
   cancelConflict: string | null = null
   /** Atraso das respostas de depósito, para o teste de duplo clique. */
   depositDelayMs = 0
+  /**
+   * Quantos depósitos a API grava e depois perde a resposta (conexão cai no caminho de
+   * volta): o depósito existe no servidor, mas o navegador vê falha de rede (RN-18).
+   */
+  dropDepositResponses = 0
   readonly requests: Request[] = []
   private readonly depositsByKey = new Map<string, MockMovement>()
   private readonly overrides = new Map<string, MockReply>()
@@ -254,6 +259,14 @@ export class MockApi {
     const url = new URL(request.url())
     const reply = await this.respond(request.method(), url, request)
     if (reply.delayMs) await new Promise((r) => setTimeout(r, reply.delayMs))
+    if (
+      request.method() === 'POST' &&
+      url.pathname === '/wallet/deposits' &&
+      this.dropDepositResponses > 0
+    ) {
+      this.dropDepositResponses -= 1
+      return route.abort('connectionreset')
+    }
     return route.fulfill({
       status: reply.status,
       headers: cors,
