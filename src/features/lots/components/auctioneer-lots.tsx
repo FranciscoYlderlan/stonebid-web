@@ -7,7 +7,7 @@ import { formatCents } from '@/lib/money'
 import { useAuctioneerLots } from '../hooks/useAuctioneerLots'
 import type { LotStatus } from '../types/lot-types'
 import { CancelLotButton } from './cancel-lot-button'
-import { LotOutcome } from './lot-outcome'
+import { AuctioneerLotOutcome } from './auctioneer-lot-outcome'
 import { LotSection } from './lot-section'
 import { LotSectionSkeleton } from './lot-section-skeleton'
 
@@ -74,7 +74,7 @@ export function AuctioneerLots({
                 CANCELABLE.includes(lot.status) ? (
                   <CancelLotButton lot={lot} />
                 ) : (
-                  <LotOutcome lot={lot} />
+                  <AuctioneerLotOutcome lot={lot} />
                 )
               }
             />

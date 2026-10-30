@@ -10,6 +10,7 @@ import type {
   lotResultSchema,
   lotSchema,
   lotStatusSchema,
+  lotViewerSchema,
   showcaseResponseSchema,
 } from '../schemas/lot-schemas'
 import type {
@@ -21,6 +22,7 @@ import type {
 export type LotStatus = z.infer<typeof lotStatusSchema>
 export type Lot = z.infer<typeof lotSchema>
 export type LotResult = z.infer<typeof lotResultSchema>
+export type LotViewer = z.infer<typeof lotViewerSchema>
 export type ItemAttributes = z.infer<typeof itemAttributesSchema>
 export type CatalogItem = z.infer<typeof catalogItemSchema>
 export type ItemAuction = z.infer<typeof itemAuctionSchema>
