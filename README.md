@@ -30,6 +30,28 @@ npm run dev            # http://localhost:5173
 | `npm run lint`                    | ESLint (sem avisos permitidos)                   |
 | `npm run format` / `format:check` | Prettier: formata / confere                      |
 | `npm run typecheck`               | TypeScript (`tsc -b`)                            |
+| `npm run test:e2e`                | Playwright contra a API simulada (`e2e/`)        |
+
+## Telas
+
+| Rota          | Acesso      | O que mostra                                                                                         |
+| ------------- | ----------- | ---------------------------------------------------------------------------------------------------- |
+| `/`           | Público     | Vitrine: ao vivo, agendados e encerrados (cancelados ficam fora), com contagem pela hora do servidor |
+| `/lots/:id`   | Público     | Dados do lote, só leitura                                                                            |
+| `/wallet`     | Licitante   | Saldos total, comprometido e disponível; depósito (uma `Idempotency-Key` por envio) e extrato        |
+| `/auctioneer` | Leiloeiro   | Busca no acervo, criação de lote e "Meus lotes" por estado, com Cancelar                             |
+| `/account`    | Quem entrou | Dados da conta                                                                                       |
+
+A sidebar da área logada mostra só os links do papel da conta. Quem abre a tela do outro papel vê um aviso; a proteção real é do servidor.
+
+## Testes de ponta a ponta
+
+Playwright em `e2e/`, com a API simulada em memória (`e2e/support/mock-api.ts`): toda chamada para `VITE_API_URL` é interceptada, então os testes não dependem da `stonebid-api` nem da internet. O `playwright.config.ts` sobe o `vite` sozinho.
+
+```bash
+npx playwright install chromium   # uma vez
+npm run test:e2e
+```
 
 ## Estrutura
 

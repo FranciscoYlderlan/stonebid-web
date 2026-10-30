@@ -14,7 +14,8 @@
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.3.0",
@@ -37,6 +38,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.63.0",
     "@tanstack/eslint-plugin-query": "^5.105.0",
     "@tanstack/eslint-plugin-router": "^1.162.0",
     "@tanstack/react-router-devtools": "^1.167.2",
