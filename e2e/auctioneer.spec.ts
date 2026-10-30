@@ -261,7 +261,7 @@ test.describe('Painel do leiloeiro (RF-20 a RF-22, RF-25)', () => {
     ).toHaveCount(0)
   })
 
-  test('Cancelar só em lote sem lances, como a regra da API', async ({
+  test('Cancelar também em lote com lances, como a regra da API (OPC-2)', async ({
     page,
   }) => {
     const api = new MockApi(page).loginAs('AUCTIONEER')
@@ -280,7 +280,7 @@ test.describe('Painel do leiloeiro (RF-20 a RF-22, RF-25)', () => {
     const cancel = (title: string) =>
       card(title).getByRole('button', { name: 'Cancelar', exact: true })
     await expect(card('Lote com-lance')).toBeVisible()
-    await expect(cancel('Lote com-lance')).toHaveCount(0)
+    await expect(cancel('Lote com-lance')).toBeVisible()
     await expect(cancel('Lote sem-lance')).toBeVisible()
     await expect(cancel('Lote agendado')).toBeVisible()
   })
@@ -291,7 +291,7 @@ test.describe('Painel do leiloeiro (RF-20 a RF-22, RF-25)', () => {
     const api = new MockApi(page).loginAs('AUCTIONEER')
     api.lots = [makeLot('meu', 'SCHEDULED', api.serverTime)]
     api.myLotIds.add('meu')
-    api.cancelConflict = 'O lote já recebeu lances e não pode ser cancelado.'
+    api.cancelConflict = 'O lote já está cancelado.'
     await api.install()
     await page.goto('/auctioneer')
 
@@ -321,11 +321,11 @@ test.describe('Painel do leiloeiro (RF-20 a RF-22, RF-25)', () => {
     await reason.fill('Obra retirada pelo comitente')
     await dialog.getByRole('button', { name: 'Cancelar lote' }).click()
     await expect(dialog.getByRole('alert')).toHaveText(
-      'O lote já recebeu lances e não pode ser cancelado.',
+      'O lote já está cancelado.',
     )
     expect(api.requestsTo('POST', '/lots/meu/cancel')).toHaveLength(1)
 
-    // Sem lances: o cancelamento passa com o motivo, que o card mostra.
+    // Sem o conflito: o cancelamento passa com o motivo, que o card mostra.
     api.cancelConflict = null
     await dialog.getByRole('button', { name: 'Cancelar lote' }).click()
     await expect(page.getByText('Lote cancelado.')).toBeVisible()

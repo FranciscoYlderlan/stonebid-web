@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { formatCents } from '@/lib/money'
+import { formatDateTime } from '@/lib/time'
 
 import type { Lot } from '../types/lot-types'
 
@@ -16,6 +17,7 @@ type LotOutcomeProps = {
     | 'leaderPseudonym'
     | 'receiptPublicId'
     | 'cancelReason'
+    | 'canceledAt'
     | 'viewer'
   >
 }
@@ -50,7 +52,7 @@ function Notice({
 /**
  * O que a sala mostra no lugar do lance quando o lote não está ao vivo: agendado, encerrado
  * aguardando a liquidação, vendido (valor, vencedor e comprovante), sem vencedor ou
- * cancelado com o motivo.
+ * cancelado com a data e o motivo (também no cabeçalho da auditoria).
  */
 export function LotOutcome({ lot }: LotOutcomeProps) {
   if (lot.status === 'SCHEDULED') {
@@ -66,6 +68,18 @@ export function LotOutcome({ lot }: LotOutcomeProps) {
   if (lot.status === 'CANCELED') {
     return (
       <Notice icon={<Ban />} title="Lote cancelado" outcome="canceled">
+        {lot.canceledAt ? (
+          <p className="text-sm text-muted-foreground">
+            Cancelado em{' '}
+            <time
+              dateTime={lot.canceledAt}
+              className="text-foreground tabular-nums"
+              data-testid="lot-canceled-at"
+            >
+              {formatDateTime(lot.canceledAt)}
+            </time>
+          </p>
+        ) : null}
         <p className="text-sm text-muted-foreground">
           Motivo:{' '}
           <span className="text-foreground" data-testid="lot-cancel-reason">

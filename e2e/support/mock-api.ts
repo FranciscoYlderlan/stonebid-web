@@ -103,6 +103,7 @@ export type AuditReason =
   | 'HEAD_MISMATCH'
   | 'RECEIPT_MISMATCH'
   | 'SETTLEMENT_MISMATCH'
+  | 'CANCEL_MISMATCH'
 
 /** Resultado da verificação da cadeia, como o `GET /lots/:id/audit` devolve. */
 export type MockAuditResult = {
@@ -425,6 +426,11 @@ export class MockApi {
   readonly lotItems = new Map<string, string>()
   searchFails = false
   cancelConflict: string | null = null
+  /**
+   * `CANCEL_WITH_BIDS_ENABLED` da API (OPC-2), ligado em produção e staging. Desligado, lote
+   * com lances é recusado com 409 `LOT_NOT_CANCELABLE`.
+   */
+  cancelWithBidsEnabled = true
   /** Comprovantes por `publicId` (`GET /receipts/:publicId`, público). */
   readonly receipts = new Map<string, MockReceipt>()
   /** Lotes com lance do licitante logado (`GET /me/bids`), mais recentes primeiro. */
@@ -529,13 +535,47 @@ export class MockApi {
     return this
   }
 
-  /** Cancela o lote com o motivo, como o `POST /lots/:id/cancel` do I3. */
+  /** Cancela o lote com o motivo, como o `POST /lots/:id/cancel` (com o estorno do OPC-2). */
   cancelLot(lotId: string, reason: string) {
-    const lot = this.lotById(lotId)
-    lot.status = 'CANCELED'
-    lot.canceledAt = this.serverTime.toISOString()
-    lot.cancelReason = reason
+    this.applyCancel(this.lotById(lotId), reason)
     return this
+  }
+
+  /**
+   * Cancelamento na mesma transação do estorno (OPC-2): grava `canceledAt` e o motivo e, com
+   * lances, um `REFUND` do líder no valor do lance atual, que libera o comprometido dele
+   * (total igual, disponível de volta). Líder, lance atual e cabeça ficam como estão. A
+   * carteira simulada é a do licitante logado: o estorno só entra nela se ele lidera.
+   */
+  private applyCancel(lot: MockLot, reason: string) {
+    const serverTime = this.serverTime.toISOString()
+    lot.status = 'CANCELED'
+    lot.canceledAt = serverTime
+    lot.cancelReason = reason
+    if (lot.currentBidCents !== null && this.leading.has(lot.id)) {
+      const amountCents = lot.currentBidCents
+      this.movements = [
+        {
+          id: `m-${this.movements.length + 1}`,
+          type: 'REFUND',
+          amountCents,
+          lotId: lot.id,
+          createdAt: serverTime,
+        },
+        ...this.movements,
+      ]
+      this.wallet = {
+        ...this.wallet,
+        committedCents: this.wallet.committedCents - amountCents,
+        availableCents: this.wallet.availableCents + amountCents,
+      }
+    }
+    // "Meus lances": o lote cancelado vira `CANCELED` para todo licitante que deu lance.
+    this.myBids = this.myBids.map((item) =>
+      item.lot.id === lot.id
+        ? { ...item, lot: { ...lot }, position: 'CANCELED' }
+        : item,
+    )
   }
 
   private lotById(lotId: string) {
@@ -982,12 +1022,16 @@ export class MockApi {
           'LOT_ENDED',
           'O lote já foi encerrado e não pode ser cancelado.',
         )
-      // Sem lances no I1: o conflito por lance é forçado pelo teste.
+      if (lot.currentBidCents !== null && !this.cancelWithBidsEnabled)
+        return error(
+          409,
+          'LOT_NOT_CANCELABLE',
+          'O lote já tem lances e não pode ser cancelado.',
+        )
+      // Conflito de corrida (ex.: outro cancelamento no meio), forçado pelo teste.
       if (this.cancelConflict)
         return error(409, 'LOT_NOT_CANCELABLE', this.cancelConflict)
-      lot.status = 'CANCELED'
-      lot.canceledAt = serverTime
-      lot.cancelReason = reason
+      this.applyCancel(lot, reason)
       return ok(lot)
     }
 

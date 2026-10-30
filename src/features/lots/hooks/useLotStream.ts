@@ -1,6 +1,8 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 
+import { walletKeys } from '@/lib/wallet-cache'
+
 import {
   lotEventsUrl,
   lotQueryOptions,
@@ -17,10 +19,18 @@ import type { LotDetail } from '../types/lot-types'
 const RECONNECT_MS = 5_000
 
 /**
+ * Chave do `GET /me/bids` (`myBidsKeys.all` da feature my-bids, que esta não importa): o
+ * cancelamento muda a posição de quem deu lance para `CANCELED`.
+ */
+const MY_BIDS_KEY = ['my-bids'] as const
+
+/**
  * Tempo real da sala (AD-04): `EventSource` em `GET /lots/:id/events`. Cada evento traz o
  * lote inteiro, que entra no cache do detalhe; o histórico recarrega. O stream é público e
  * vem com `viewer` nulo, então o `viewer` do cache (do `GET /lots/:id` com JWT) fica; login e
  * logout zeram esse cache (`startSession`/`endSession`), e o `viewer` de outra sessão não volta.
+ * O evento `canceled` também invalida a carteira e "meus lances" (OPC-2): o líder recebe o
+ * estorno na mesma transação do cancelamento, e o saldo novo aparece sem recarregar.
  * O `EventSource` reconecta sozinho (e, se desistir, a sala abre outro); devolve `true` só enquanto o stream está no ar, para a
  * sala ligar a recarga de 3 s quando ele cai. Lote final (encerrado e liquidado, ou
  * cancelado) fecha o stream.
@@ -66,6 +76,10 @@ export function useLotStream(id: string): boolean {
         queryKey: lotsKeys.bids(id),
         exact: true,
       })
+      if (event.type === 'canceled') {
+        void queryClient.invalidateQueries({ queryKey: walletKeys.all })
+        void queryClient.invalidateQueries({ queryKey: MY_BIDS_KEY })
+      }
     }
 
     source.addEventListener('open', onOpen)

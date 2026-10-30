@@ -19,17 +19,13 @@ const GROUPS: { status: LotStatus; title: string; empty: string }[] = [
 ]
 
 /**
- * Mesma regra do `POST /lots/:id/cancel`: só lote sem lances, nem cancelado nem encerrado (o
- * servidor encerra pela hora, então o fim conta pela hora do servidor). Fora disso a API
- * recusa com 409, e o botão nem aparece.
+ * Mesma regra do `POST /lots/:id/cancel`: nem cancelado nem encerrado (o servidor encerra pela
+ * hora, então o fim conta pela hora do servidor). Com lances também cancela, e o líder recebe
+ * estorno (OPC-2). Fora disso a API recusa com 409, e o botão nem aparece.
  */
-function canCancel(
-  lot: Pick<Lot, 'status' | 'currentBidCents' | 'endsAt'>,
-  nowMs: number,
-) {
+function canCancel(lot: Pick<Lot, 'status' | 'endsAt'>, nowMs: number) {
   return (
     (lot.status === 'SCHEDULED' || lot.status === 'LIVE') &&
-    lot.currentBidCents === null &&
     nowMs < Date.parse(lot.endsAt)
   )
 }
