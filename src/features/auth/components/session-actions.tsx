@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { LogIn, LogOut, UserRound } from 'lucide-react'
+import { LogIn, LogOut, UserPlus, UserRound } from 'lucide-react'
 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -27,6 +27,9 @@ function initials(name: string) {
     .join('')
 }
 
+/** Botão quadrado de 40 px abaixo de `sm`; do `sm` para cima, o tamanho padrão. */
+const VISITOR_BUTTON = 'size-10 px-0 sm:h-8 sm:w-auto sm:px-2.5'
+
 /**
  * Lado direito do cabeçalho: Entrar/Cadastrar para visitante. Para quem entrou,
  * atalho para a área do papel (painel do leiloeiro ou carteira) e o menu do
@@ -41,15 +44,21 @@ export function SessionActions() {
   if (!user) {
     return (
       <div className="flex items-center gap-1">
-        {/* Abaixo de `sm` o Entrar fica só com o ícone, para caber a 320 px. */}
-        <Button variant="ghost" asChild>
+        {/*
+         * Abaixo de `sm` Entrar e Cadastrar ficam só com o ícone, num alvo de
+         * toque de 40 px: com o texto, o Cadastrar encostava na borda a 320 px.
+         */}
+        <Button variant="ghost" asChild className={VISITOR_BUTTON}>
           <Link to="/login" aria-label="Entrar">
             <LogIn aria-hidden className="sm:hidden" />
             <span className="hidden sm:inline">Entrar</span>
           </Link>
         </Button>
-        <Button asChild>
-          <Link to="/register">Cadastrar</Link>
+        <Button asChild className={VISITOR_BUTTON}>
+          <Link to="/register" aria-label="Cadastrar">
+            <UserPlus aria-hidden className="sm:hidden" />
+            <span className="hidden sm:inline">Cadastrar</span>
+          </Link>
         </Button>
       </div>
     )
