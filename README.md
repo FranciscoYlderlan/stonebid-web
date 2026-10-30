@@ -170,18 +170,20 @@ O primeiro registro inconsistente aparece com o motivo e a linha destacada.
 
 <img src="docs/telas/sala-do-lote-390px.png" alt="Sala do lote em 390 px" width="320">
 
-## Comportamentos inesperados e limites
+## Características de funcionamento e limites
 
-- **Tempo real por SSE:** a sala do lote assina `GET /lots/:id/events` (`EventSource`). Cada evento (lance, cancelamento, liquidação) traz o lote inteiro e recarrega o histórico.
-- **Conexão perdida:** enquanto o stream está fora, a sala recarrega o lote e o histórico a cada 3 s. O navegador reconecta sozinho; se ele desistir (erro HTTP na reconexão), a sala abre outro stream depois de 5 s. Lote encerrado e liquidado, ou cancelado, fecha o stream.
-- **Início e fim pela hora:** o stream não avisa a virada de agendado para ao vivo nem de ao vivo para encerrado. A sala relê o lote no instante da virada; encerrado e ainda não liquidado, relê a cada 5 s até aparecer o resultado.
-- **Relógio do servidor:** contagens e o fechamento do painel de lance usam a hora do servidor (diferença calculada a cada resposta), não o relógio do computador. Com a contagem zerada e o servidor ainda sem encerrar, o painel fica desabilitado.
-- **Vitrine e Meus arremates** se atualizam a cada 15 s; não usam o stream.
+Escolhas de projeto da interface, cada uma com o motivo. Várias seguem regras da `stonebid-api`, que é quem decide.
+
+- **Tempo real por SSE:** a sala do lote assina `GET /lots/:id/events` (`EventSource`), o canal de tempo real da API. Cada evento (lance, cancelamento, liquidação) traz o lote inteiro, então a sala se atualiza sem outra consulta ao lote, e recarrega o histórico.
+- **Recarga enquanto o stream está fora:** a sala recarrega o lote e o histórico a cada 3 s, para seguir atualizada sem o stream. O navegador reconecta sozinho; se ele desistir (erro HTTP na reconexão, como um 503 durante um deploy), a sala abre outro stream depois de 5 s. Lote encerrado e liquidado, ou cancelado, não muda mais, e a sala fecha o stream.
+- **Viradas de estado pela hora:** a API calcula o estado do lote pelo relógio do servidor, sem evento na virada de agendado para ao vivo nem de ao vivo para encerrado. Por isso a sala relê o lote no instante da virada; encerrado e ainda não liquidado, relê a cada 5 s até aparecer o resultado.
+- **Relógio do servidor:** contagens e o fechamento do painel de lance usam a hora do servidor (diferença calculada a cada resposta), não o relógio do computador, porque é o servidor que decide se um lance ainda entra. Com a contagem zerada e o servidor ainda sem encerrar, o painel fica desabilitado.
+- **Vitrine e Meus arremates se atualizam a cada 15 s:** os lotes mudam de estado com o tempo, e a posição muda com os lances dos outros e com a liquidação. O stream da API é por lote, então essas listas usam recarga periódica.
 - **Lance e depósito sem duplicar:** cada envio leva uma `Idempotency-Key`. Depois de uma falha (ex.: a rede caiu com o lance já gravado), a nova tentativa do mesmo valor reusa a chave e a API não grava de novo. O botão trava enquanto a requisição está no ar.
-- **Recusas:** lance abaixo do mínimo, saldo insuficiente, quem já lidera, lote não iniciado, encerrado ou cancelado aparecem com a mensagem da API.
-- **Sessão:** o JWT fica no `localStorage` e vai no cabeçalho `Authorization`. Um 401 em qualquer chamada autenticada apaga o token e devolve a pessoa como visitante. Se a checagem da sessão falhar por outro motivo (rede, 5xx), o app mostra um aviso e segue.
-- **Papel:** licitante e leiloeiro veem só os próprios links; o leiloeiro que abre `/bidding/$id` vai para `/lots/$id`. A regra vale de verdade no servidor.
-- **Imagem da obra:** se a imagem não carrega, a tela mostra um marcador no lugar.
+- **Recusas com a mensagem da API:** lance abaixo do mínimo, saldo insuficiente, quem já lidera, lote não iniciado, encerrado ou cancelado aparecem com a mensagem que a API devolve, em português, porque as regras do lance moram no servidor. Abaixo do mínimo, o campo passa a sugerir o mínimo informado.
+- **Sessão:** o JWT fica no `localStorage` e vai no cabeçalho `Authorization`, o formato de sessão da API. Um 401 em qualquer chamada autenticada significa que o token não vale mais: o app apaga o token e a pessoa segue como visitante. Se a checagem da sessão falhar por outro motivo (rede, 5xx), o app mostra um aviso e segue, sem apagar o token.
+- **Papel:** licitante e leiloeiro veem só os links do próprio papel, e o leiloeiro que abre `/bidding/$id` vai para `/lots/$id`, já que leiloeiro não dá lance. A tela organiza a navegação; a regra vale no servidor.
+- **Imagem da obra:** se a imagem falta ou não carrega, a capa mostra um marcador no lugar, na mesma proporção.
 - **Staging dorme:** a API de staging roda com zero instâncias mínimas no Cloud Run, então a primeira chamada depois de um tempo parado pode levar alguns segundos.
 
 ## Testes de ponta a ponta
