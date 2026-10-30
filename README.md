@@ -2,15 +2,15 @@
 
 Frontend do **Stonebid**, casa de leilões online: vitrine pública, lances ao vivo, comprovante compartilhável e histórico de lances auditável por qualquer pessoa.
 
-| Ambiente | Web                                               | API                                               |
-| -------- | ------------------------------------------------- | ------------------------------------------------- |
-| Produção | https://stonebid-web.vercel.app                   | https://stonebid-api-7idhzkkvpq-rj.a.run.app      |
-| Staging  | https://stonebid-web-staging.vercel.app           | serviço `stonebid-api-staging` no Cloud Run       |
-| Código   | https://github.com/FranciscoYlderlan/stonebid-web | https://github.com/FranciscoYlderlan/stonebid-api |
+| Ambiente | Web                                               | API                                                  |
+| -------- | ------------------------------------------------- | ---------------------------------------------------- |
+| Produção | https://stonebid-web.vercel.app                   | https://stonebid-api-7idhzkkvpq-rj.a.run.app         |
+| Staging  | https://stonebid-web-staging.vercel.app           | https://stonebid-api-staging-7idhzkkvpq-rj.a.run.app |
+| Código   | https://github.com/FranciscoYlderlan/stonebid-web | https://github.com/FranciscoYlderlan/stonebid-api    |
 
 ## Usuários de teste
 
-Senha de todos: `stonebid123`.
+Senha de todos: `stonebid123`, em produção e em staging (e no seed local).
 
 | Papel     | E-mail                     |
 | --------- | -------------------------- |
@@ -44,7 +44,7 @@ Por padrão o app chama a API local em `http://localhost:3333` (veja o README da
 VITE_API_URL=https://url-da-api npm run dev
 ```
 
-A API só aceita o navegador de uma origem que esteja no `CORS_ORIGIN` dela. Contra a API local, o `.env.example` da `stonebid-api` já libera `http://localhost:5173`; contra a API de staging, `http://localhost:5173` precisa estar no `CORS_ORIGIN_STAGING` dela.
+O caminho documentado é rodar contra a API local: o `.env.example` da `stonebid-api` já libera `http://localhost:5173` no `CORS_ORIGIN`. Contra a API de staging (`https://stonebid-api-staging-7idhzkkvpq-rj.a.run.app`), só funciona se o `CORS_ORIGIN` de lá aceitar a origem local.
 
 ## Variáveis de ambiente
 
