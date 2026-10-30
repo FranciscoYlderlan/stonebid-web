@@ -136,21 +136,25 @@ test.describe('Sala ao vivo (RF-31)', () => {
     page,
   }) => {
     const api = liveLot(page, 'BIDDER')
+    // O relógio do servidor anda, como na API real: a releitura na virada não volta a hora.
+    Object.defineProperty(api, 'serverTime', {
+      get: () => new Date(),
+      set: () => undefined,
+    })
     api.lots[0]!.endsAt = new Date(
-      api.serverTime.getTime() + 3_000,
+      api.serverTime.getTime() + 8_000,
     ).toISOString()
     api.addBid(LOT, 12_000, OTHER)
     await openRoom(page, api, `/bidding/${LOT}`)
     await expect(bidButton(page)).toBeEnabled()
 
-    await expect(bidButton(page)).toBeDisabled({ timeout: 8_000 })
+    await expect(bidButton(page)).toBeDisabled({ timeout: 15_000 })
     await expect(page.getByLabel('Seu lance (R$)')).toBeDisabled()
     await expect(page.getByTestId('lot-countdown')).toContainText(
       'Encerrando agora',
     )
 
     // O servidor encerra; a sala relê o lote na virada.
-    api.serverTime = new Date()
     api.lots[0]!.status = 'ENDED'
     const outcome = page.getByTestId('lot-outcome')
     await expect(outcome).toHaveAttribute('data-outcome', 'awaiting', {
