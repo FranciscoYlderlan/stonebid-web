@@ -27,6 +27,16 @@ export const itemAttributesSchema = z.object({
   placeOfOrigin: z.string().nullish(),
 })
 
+/** Resultado da liquidação (AD-08): `null` até liquidar. */
+export const lotResultSchema = z.enum(['SOLD', 'NO_WINNER'])
+
+/** Campo anulável do contrato do I3; ausente (API anterior) vale `null`. */
+const nullableField = <T extends z.ZodType>(schema: T) =>
+  schema.nullish().transform((value) => value ?? null)
+
+/** Quem olha o lote (RF-30): só no `GET /lots/:id` com JWT de licitante; senão `null`. */
+export const lotViewerSchema = z.object({ pseudonym: z.string() })
+
 export const lotSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -45,6 +55,13 @@ export const lotSchema = z.object({
   endsAt: z.string(),
   status: lotStatusSchema,
   canceledAt: z.string().nullish(),
+  /** Lote liquidado = `ENDED` com `result`; `null` até liquidar. */
+  result: nullableField(lotResultSchema),
+  settledAt: nullableField(z.string()),
+  /** Comprovante público, só com `result` `SOLD`. */
+  receiptPublicId: nullableField(z.string()),
+  cancelReason: nullableField(z.string()),
+  viewer: nullableField(lotViewerSchema),
 })
 
 export const showcaseResponseSchema = z.object({
@@ -58,6 +75,23 @@ export const lotResponseSchema = z.object({
   serverTime: z.string(),
   lot: lotSchema,
 })
+
+/** Lote que não muda mais: cancelado, ou encerrado e liquidado. Sem stream nem recarga. */
+export const isFinalLot = (
+  lot: Pick<z.infer<typeof lotSchema>, 'status' | 'result'>,
+) =>
+  lot.status === 'CANCELED' || (lot.status === 'ENDED' && lot.result !== null)
+
+/** Evento do `GET /lots/:id/events` (SSE): mesmo corpo do detalhe, com `viewer` nulo. */
+export const lotEventSchema = lotResponseSchema
+
+/** Eventos do stream da sala: `snapshot` ao conectar, depois `bid`, `canceled` e `settled`. */
+export const LOT_STREAM_EVENTS = [
+  'snapshot',
+  'bid',
+  'canceled',
+  'settled',
+] as const
 
 export const auctioneerLotsResponseSchema = z.object({
   serverTime: z.string(),
