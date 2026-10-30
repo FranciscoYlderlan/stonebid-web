@@ -204,3 +204,7 @@ branch → PR → CI verde → merge em staging → deploy de staging → merge 
 - **CI** (`.github/workflows/ci.yml`), em todo push e PR: lint, formatação, tipos e build; e o Playwright com a API simulada.
 - **CD** (`.github/workflows/cd.yml`): roda só depois do CI verde num push em `staging` ou `main`. `staging` publica um preview na Vercel e aponta o alias fixo `stonebid-web-staging.vercel.app`; `main` publica em produção.
 - O deploy automático pelo Git da Vercel fica desligado (`vercel.json`): o único caminho para o ar é o `cd.yml`. O `vercel.json` também reescreve todas as rotas para `index.html` (SPA).
+
+## Uso de IA
+
+Como usei IA neste projeto (orquestração de subagentes, memória no Obsidian e quem definiu, aplicou e refinou cada parte): [docs/uso-de-ia.md](docs/uso-de-ia.md).
