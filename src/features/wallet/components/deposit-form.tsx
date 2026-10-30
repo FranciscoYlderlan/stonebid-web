@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/card'
 import { useZodForm } from '@/hooks/useZodForm'
 import { formatCents } from '@/lib/money'
+import { showMutationError } from '@/lib/mutation-error'
 
 import { useDeposit } from '../hooks/useDeposit'
 import { createDepositFormSchema } from '../schemas/wallet-schemas'
@@ -50,7 +51,7 @@ export function DepositForm({
           )
           form.setValue('amount', '')
         },
-        onError: (error) => toast.error(error.message),
+        onError: showMutationError,
         onSettled: () => {
           inFlight.current = false
         },

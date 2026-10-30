@@ -111,7 +111,9 @@ test.describe('Painel do leiloeiro (RF-20 a RF-22, RF-25)', () => {
     await page.getByLabel('Buscar itens no acervo').fill('monet')
     const alert = page.getByTestId('item-search-error')
     await expect(alert).toContainText('A busca de itens está indisponível')
-    await expect(alert).toContainText('O acervo de arte está fora do ar.')
+    await expect(alert).toContainText(
+      'A API de itens (Art Institute of Chicago) não respondeu.',
+    )
 
     await expect(
       page.getByRole('heading', { name: 'Meus lotes' }),

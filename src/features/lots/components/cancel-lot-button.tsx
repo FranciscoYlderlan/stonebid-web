@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
+import { showMutationError } from '@/lib/mutation-error'
 
 import { useCancelLot } from '../hooks/useCancelLot'
 import type { Lot } from '../types/lot-types'
@@ -26,7 +27,7 @@ export function CancelLotButton({ lot }: { lot: Pick<Lot, 'id' | 'title'> }) {
     if (cancelLot.isPending) return
     cancelLot.mutate(lot.id, {
       onSuccess: () => toast.success('Lote cancelado.'),
-      onError: (error) => toast.error(error.message),
+      onError: showMutationError,
     })
   }
 
