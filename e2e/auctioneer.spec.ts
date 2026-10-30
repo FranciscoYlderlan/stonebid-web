@@ -261,6 +261,30 @@ test.describe('Painel do leiloeiro (RF-20 a RF-22, RF-25)', () => {
     ).toHaveCount(0)
   })
 
+  test('Cancelar só em lote sem lances, como a regra da API', async ({
+    page,
+  }) => {
+    const api = new MockApi(page).loginAs('AUCTIONEER')
+    api.lots = [
+      makeLot('com-lance', 'LIVE', api.serverTime),
+      makeLot('sem-lance', 'LIVE', api.serverTime),
+      makeLot('agendado', 'SCHEDULED', api.serverTime),
+    ]
+    for (const lot of api.lots) api.myLotIds.add(lot.id)
+    api.addBid('com-lance', 15_000, 'Licitante 21BC4D')
+    await api.install()
+    await page.goto('/auctioneer')
+
+    const card = (title: string) =>
+      page.getByTestId('lot-card').filter({ hasText: title })
+    const cancel = (title: string) =>
+      card(title).getByRole('button', { name: 'Cancelar', exact: true })
+    await expect(card('Lote com-lance')).toBeVisible()
+    await expect(cancel('Lote com-lance')).toHaveCount(0)
+    await expect(cancel('Lote sem-lance')).toBeVisible()
+    await expect(cancel('Lote agendado')).toBeVisible()
+  })
+
   test('cancelar pede o motivo, mostra a recusa (409) e grava o motivo', async ({
     page,
   }) => {
