@@ -53,7 +53,9 @@ export const registerSchema = z.object({
       PASSWORD_MAX,
       `A senha pode ter no máximo ${PASSWORD_MAX} caracteres.`,
     ),
-  role: roleSchema,
+  role: z.enum(roleSchema.options, {
+    error: 'Escolha se você vai ser leiloeiro ou licitante.',
+  }),
 })
 
 /** `?redirect` aceita só caminho interno (contra redirecionamento aberto: `//site.com`). */
