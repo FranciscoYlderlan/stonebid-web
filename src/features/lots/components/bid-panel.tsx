@@ -22,6 +22,8 @@ import {
  * para um valor até o lance dar certo, então a nova tentativa depois de uma falha reusa a
  * chave e não grava dois lances; chave nova só depois do sucesso ou se o valor mudar. O
  * botão trava enquanto a requisição está no ar. Recusa da API aparece com a mensagem dela.
+ * O campo vem com o mínimo de agora e seleciona tudo no foco: digitar troca o valor, em vez
+ * de emendar nele ("10,005,00").
  * Fora do ao vivo (ou com a contagem zerada, antes de o servidor encerrar) o formulário
  * fica desabilitado.
  */
@@ -104,6 +106,7 @@ export function BidPanel({ id }: { id: string }) {
         aria-describedby="bid-minimum"
         value={form.values.amount}
         error={form.errors.amount}
+        onFocus={(event) => event.currentTarget.select()}
         onChange={(event) => form.setValue('amount', event.target.value)}
       />
       {minNextBidCents === undefined ? null : (

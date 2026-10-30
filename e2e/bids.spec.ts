@@ -73,6 +73,28 @@ test.describe('Tela de lance (RF-33)', () => {
     await expect(amountField(page)).toHaveValue('130,00')
   })
 
+  test('digitar no campo troca o mínimo sugerido pelo valor digitado', async ({
+    page,
+  }) => {
+    const api = bidderWithLiveLot(page)
+    await api.install()
+    await page.goto(`/bidding/${LOT}`)
+    const field = amountField(page)
+    await expect(field).toHaveValue('130,00')
+
+    // Clique no fim do texto, como quem quer apagar e digitar: o foco seleciona tudo.
+    const box = (await field.boundingBox())!
+    await field.click({ position: { x: box.width - 8, y: box.height / 2 } })
+    await field.pressSequentially('150,00')
+    await expect(field).toHaveValue('150,00')
+
+    await bidButton(page).click()
+    await expect(page.getByText('Lance de R$ 150,00 registrado.')).toBeVisible()
+    expect(api.requestsTo('POST', BIDS_PATH)[0]!.postDataJSON()).toEqual({
+      amountCents: 15_000,
+    })
+  })
+
   test('saldo insuficiente: mensagem da API', async ({ page }) => {
     const api = bidderWithLiveLot(page)
     api.wallet.availableCents = 5_000
