@@ -8,8 +8,9 @@ import {
 } from '@/components/ui/dialog'
 import { apiUrl } from '@/lib/api-client'
 
-import type { CatalogItem, Lot } from '../types/lot-types'
+import type { CatalogItem, ItemAuction, Lot } from '../types/lot-types'
 import { CreateLotForm } from './create-lot-form'
+import { ItemAuctionBadge } from './item-auction-badge'
 
 type CreateLotDialogProps = {
   /** Item escolhido na busca; `null` fecha o diálogo. */
@@ -18,6 +19,8 @@ type CreateLotDialogProps = {
   onClose: () => void
   /** Lote criado; quem chama fecha o diálogo. No erro, o diálogo fica aberto com os dados. */
   onCreated: (lot: Lot) => void
+  /** 409 da RN-19 no envio: quem chama atualiza o item, e a prévia mostra o selo. */
+  onAuctionFound?: (auction: ItemAuction) => void
   /** Depois de fechar (animação e trava de rolagem já desfeitas): quem chama decide o foco. */
   onCloseAutoFocus?: (event: Event) => void
 }
@@ -27,6 +30,7 @@ export function CreateLotDialog({
   clockOffsetMs,
   onClose,
   onCreated,
+  onAuctionFound,
   onCloseAutoFocus,
 }: CreateLotDialogProps) {
   return (
@@ -50,13 +54,19 @@ export function CreateLotDialog({
                 alt={item.title}
                 className="w-20 shrink-0 rounded-md"
               />
-              <p className="line-clamp-2 font-medium">{item.title}</p>
+              <div className="space-y-1">
+                <p className="line-clamp-2 font-medium">{item.title}</p>
+                {item.auction ? (
+                  <ItemAuctionBadge auction={item.auction} />
+                ) : null}
+              </div>
             </div>
             <CreateLotForm
               key={item.externalId}
               item={item}
               clockOffsetMs={clockOffsetMs}
               onCreated={onCreated}
+              onAuctionFound={onAuctionFound}
             />
           </>
         ) : null}

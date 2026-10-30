@@ -62,6 +62,9 @@ export function AuctioneerPanel() {
         clockOffsetMs={data?.clockOffsetMs ?? 0}
         onClose={() => setSelected(null)}
         onCreated={handleCreated}
+        onAuctionFound={(auction) =>
+          setSelected((item) => (item ? { ...item, auction } : item))
+        }
         onCloseAutoFocus={handleCloseAutoFocus}
       />
     </div>
