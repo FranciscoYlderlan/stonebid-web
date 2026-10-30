@@ -22,6 +22,7 @@ import { Route as AppMyBidsIndexRouteImport } from './_app/my-bids/index'
 import { Route as AppWalletIndexRouteImport } from './_app/wallet/index'
 import { Route as PublicLotsIdRouteImport } from './_public/lots/$id'
 import { Route as PublicReceiptsIdRouteImport } from './_public/receipts/$id'
+import { Route as PublicLotsIdAuditRouteImport } from './_public/lots/$id_.audit'
 
 const AppRouteRoute = AppRouteRouteImport.update({
   id: '/_app',
@@ -85,6 +86,11 @@ const PublicReceiptsIdRoute = PublicReceiptsIdRouteImport.update({
   path: '/receipts/$id',
   getParentRoute: () => PublicRouteRoute,
 } as any)
+const PublicLotsIdAuditRoute = PublicLotsIdAuditRouteImport.update({
+  id: '/lots/$id_/audit',
+  path: '/lots/$id/audit',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof PublicIndexRoute
@@ -97,6 +103,7 @@ export interface FileRoutesByFullPath {
   '/auctioneer/': typeof AppAuctioneerIndexRoute
   '/my-bids/': typeof AppMyBidsIndexRoute
   '/wallet/': typeof AppWalletIndexRoute
+  '/lots/$id/audit': typeof PublicLotsIdAuditRoute
 }
 export interface FileRoutesByTo {
   '/': typeof PublicIndexRoute
@@ -109,6 +116,7 @@ export interface FileRoutesByTo {
   '/auctioneer': typeof AppAuctioneerIndexRoute
   '/my-bids': typeof AppMyBidsIndexRoute
   '/wallet': typeof AppWalletIndexRoute
+  '/lots/$id/audit': typeof PublicLotsIdAuditRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -125,6 +133,7 @@ export interface FileRoutesById {
   '/_app/auctioneer/': typeof AppAuctioneerIndexRoute
   '/_app/my-bids/': typeof AppMyBidsIndexRoute
   '/_app/wallet/': typeof AppWalletIndexRoute
+  '/_public/lots/$id_/audit': typeof PublicLotsIdAuditRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -139,6 +148,7 @@ export interface FileRouteTypes {
     | '/auctioneer/'
     | '/my-bids/'
     | '/wallet/'
+    | '/lots/$id/audit'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -151,6 +161,7 @@ export interface FileRouteTypes {
     | '/auctioneer'
     | '/my-bids'
     | '/wallet'
+    | '/lots/$id/audit'
   id:
     | '__root__'
     | '/_app'
@@ -166,6 +177,7 @@ export interface FileRouteTypes {
     | '/_app/auctioneer/'
     | '/_app/my-bids/'
     | '/_app/wallet/'
+    | '/_public/lots/$id_/audit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -267,6 +279,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicReceiptsIdRouteImport
       parentRoute: typeof PublicRouteRoute
     }
+    '/_public/lots/$id_/audit': {
+      id: '/_public/lots/$id_/audit'
+      path: '/lots/$id/audit'
+      fullPath: '/lots/$id/audit'
+      preLoaderRoute: typeof PublicLotsIdAuditRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
   }
 }
 
@@ -308,12 +327,14 @@ interface PublicRouteRouteChildren {
   PublicIndexRoute: typeof PublicIndexRoute
   PublicLotsIdRoute: typeof PublicLotsIdRoute
   PublicReceiptsIdRoute: typeof PublicReceiptsIdRoute
+  PublicLotsIdAuditRoute: typeof PublicLotsIdAuditRoute
 }
 
 const PublicRouteRouteChildren: PublicRouteRouteChildren = {
   PublicIndexRoute: PublicIndexRoute,
   PublicLotsIdRoute: PublicLotsIdRoute,
   PublicReceiptsIdRoute: PublicReceiptsIdRoute,
+  PublicLotsIdAuditRoute: PublicLotsIdAuditRoute,
 }
 
 const PublicRouteRouteWithChildren = PublicRouteRoute._addFileChildren(

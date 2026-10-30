@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
+import { ShieldCheck } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -24,17 +25,26 @@ function LotPage() {
   const { id } = Route.useParams()
   const { user } = Route.useRouteContext()
   return (
-    <LotRoom
-      id={id}
-      bidSlot={
-        user?.role === 'AUCTIONEER' ? null : (
-          <Button asChild className="h-10 w-full">
-            <Link to="/bidding/$id" params={{ id }}>
-              Dar lance
-            </Link>
-          </Button>
-        )
-      }
-    />
+    <div className="space-y-8">
+      <LotRoom
+        id={id}
+        bidSlot={
+          user?.role === 'AUCTIONEER' ? null : (
+            <Button asChild className="h-10 w-full">
+              <Link to="/bidding/$id" params={{ id }}>
+                Dar lance
+              </Link>
+            </Button>
+          )
+        }
+      />
+      {/* Auditoria pública da cadeia de lances (RF-60), para todos. */}
+      <Button asChild variant="outline">
+        <Link to="/lots/$id/audit" params={{ id }}>
+          <ShieldCheck data-icon="inline-start" aria-hidden />
+          Ver auditoria
+        </Link>
+      </Button>
+    </div>
   )
 }

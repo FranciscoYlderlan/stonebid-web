@@ -94,6 +94,33 @@ export type MockBid = {
   createdAt: string
 }
 
+/** Motivo do primeiro registro inconsistente da auditoria (contrato do I4). */
+export type AuditReason =
+  | 'GAP'
+  | 'CONTENT_CHANGED'
+  | 'BAD_SEAL'
+  | 'BROKEN_LINK'
+  | 'HEAD_MISMATCH'
+  | 'RECEIPT_MISMATCH'
+  | 'SETTLEMENT_MISMATCH'
+
+/** Resultado da verificação da cadeia, como o `GET /lots/:id/audit` devolve. */
+export type MockAuditResult = {
+  verdict: 'INTACT' | 'TAMPERED'
+  firstInconsistency: { seq: number | null; reason: AuditReason } | null
+}
+
+/** Hash falso de 64 caracteres hex, estável por lote e ordem do lance. */
+export function fakeHash(lotId: string, seq: number) {
+  const seed = [...`${lotId}:${seq}`].reduce(
+    (acc, char) => (acc * 31 + char.charCodeAt(0)) >>> 0,
+    7,
+  )
+  return Array.from({ length: 8 }, (_, i) =>
+    ((seed * (i + 1) * 2654435761) >>> 0).toString(16).padStart(8, '0'),
+  ).join('')
+}
+
 /** Resposta crua para uma rota, por cima do comportamento normal da API simulada. */
 export type MockReply = { status: number; json: unknown }
 
@@ -404,6 +431,8 @@ export class MockApi {
   myBids: MockMyBid[] = []
   /** Soma dos CREDIT de liquidação do leiloeiro (`GET /auctioneer/lots`). */
   totalReceivedCents = 0
+  /** Veredito da auditoria por lote; sem entrada, a cadeia está íntegra. */
+  readonly audits = new Map<string, MockAuditResult>()
   /** Lances de cada lote, do mais antigo ao mais novo. */
   readonly bids = new Map<string, MockBid[]>()
   /** Lote em que o licitante logado lidera (para o `ALREADY_WINNING`). */
@@ -734,6 +763,36 @@ export class MockApi {
           createdAt,
         }))
       return ok({ items })
+    }
+
+    const auditMatch = path.match(/^\/lots\/([^/]+)\/audit$/)
+    if (method === 'GET' && auditMatch) {
+      const lot = this.lots.find((item) => item.id === auditMatch[1])
+      if (!lot) return error(404, 'LOT_NOT_FOUND', 'Lote não encontrado.')
+      // Público e sem dado pessoal: a cadeia inteira, do primeiro ao último lance.
+      const bids = (this.bids.get(lot.id) ?? []).map((bid) => ({
+        seq: bid.seq,
+        pseudonym: bid.pseudonym,
+        amountCents: bid.amountCents,
+        createdAt: bid.createdAt,
+        prevHash:
+          bid.seq === 1 ? '0'.repeat(64) : fakeHash(lot.id, bid.seq - 1),
+        hash: fakeHash(lot.id, bid.seq),
+      }))
+      const result = this.audits.get(lot.id) ?? {
+        verdict: 'INTACT',
+        firstInconsistency: null,
+      }
+      // Recalculado a cada acesso: a hora da verificação avança a cada chamada.
+      const checks = this.requestsTo('GET', path).length
+      return ok({
+        lot: { ...lot, viewer: null },
+        bids,
+        ...result,
+        checkedAt: new Date(
+          this.serverTime.getTime() + checks * 1000,
+        ).toISOString(),
+      })
     }
 
     const receiptMatch = path.match(/^\/receipts\/([^/]+)$/)
