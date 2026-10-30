@@ -62,6 +62,7 @@ export const auctioneerLotsResponseSchema = z.object({
 export const catalogItemSchema = z.object({
   externalId: z.union([z.string(), z.number()]).transform(String),
   title: z.string(),
+  /** Relativo à API (`/items/images/{imageId}/thumbnail`): o IIIF da AIC barra o navegador. */
   imageUrl: z.string().nullish(),
   attributes: itemAttributesSchema.catch({}),
 })
