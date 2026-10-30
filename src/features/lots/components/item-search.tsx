@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
 import { useDebounce } from '@/hooks/useDebounce'
+import { getLoadErrorMessage } from '@/lib/load-error'
 
 import { useItemSearch } from '../hooks/useItemSearch'
 import type { CatalogItem } from '../types/lot-types'
@@ -64,7 +65,9 @@ export function ItemSearch({
         <Alert variant="destructive" data-testid="item-search-error">
           <SearchX aria-hidden />
           <AlertTitle>A busca de itens está indisponível</AlertTitle>
-          <AlertDescription>{search.error.message}</AlertDescription>
+          <AlertDescription>
+            {getLoadErrorMessage(search.error)}
+          </AlertDescription>
         </Alert>
       ) : search.isPending ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

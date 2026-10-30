@@ -18,8 +18,10 @@ import { useDeposit } from '../hooks/useDeposit'
 import { createDepositFormSchema } from '../schemas/wallet-schemas'
 
 /**
- * Depósito simulado (RF-41). Cada envio gera uma `Idempotency-Key` nova, e o botão fica
- * travado enquanto a requisição está no ar: duplo clique não deposita duas vezes (RN-18).
+ * Depósito simulado (RF-41). A `Idempotency-Key` vale para um valor até o depósito dar
+ * certo: nova tentativa depois de falha (ex.: rede caiu com o depósito já gravado) reusa
+ * a chave e não deposita duas vezes. Chave nova só depois do sucesso ou se o valor mudar.
+ * O botão fica travado enquanto a requisição está no ar (RN-18).
  */
 export function DepositForm({
   depositLimitCents,
@@ -34,6 +36,8 @@ export function DepositForm({
   const deposit = useDeposit()
   // Trava síncrona: o segundo clique pode chegar antes de o botão re-renderizar desabilitado.
   const inFlight = useRef(false)
+  // Chave da tentativa em aberto, presa ao valor em centavos que ela deposita.
+  const pendingKey = useRef<{ amountCents: number; key: string } | null>(null)
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -41,11 +45,19 @@ export function DepositForm({
     const data = form.validate()
     if (!data) return
 
+    if (pendingKey.current?.amountCents !== data.amount) {
+      pendingKey.current = {
+        amountCents: data.amount,
+        key: crypto.randomUUID(),
+      }
+    }
+
     inFlight.current = true
     deposit.mutate(
-      { amountCents: data.amount, idempotencyKey: crypto.randomUUID() },
+      { amountCents: data.amount, idempotencyKey: pendingKey.current.key },
       {
         onSuccess: ({ movement }) => {
+          pendingKey.current = null
           toast.success(
             `Depósito de ${formatCents(movement.amountCents)} feito.`,
           )

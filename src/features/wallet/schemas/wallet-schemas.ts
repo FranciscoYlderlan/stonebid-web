@@ -47,6 +47,15 @@ export const depositResponseSchema = z.object({
   wallet: walletSchema,
 })
 
+/**
+ * Valor em reais no formato pt-BR, sem ambiguidade: dígitos, "." de milhar opcional em
+ * grupos de 3 e "," com 1 ou 2 casas ("100", "100,5", "1.234,56"). Recusa "1,234",
+ * "1,2,3", "0,001" e "1234.56", que antes viravam outro valor sem aviso.
+ */
+export const BRL_AMOUNT_PATTERN = /^(?:\d{1,3}(?:\.\d{3})+|\d+)(?:,\d{1,2})?$/
+
+export const INVALID_AMOUNT_MESSAGE = 'Valor inválido. Use o formato 100,00.'
+
 /** Depósito em reais → centavos: maior que zero e até o teto da carteira (RF-41). */
 export function createDepositFormSchema(depositLimitCents: number) {
   return z.object({
@@ -54,10 +63,11 @@ export function createDepositFormSchema(depositLimitCents: number) {
       .string()
       .trim()
       .min(1, 'Informe o valor do depósito.')
+      .regex(BRL_AMOUNT_PATTERN, INVALID_AMOUNT_MESSAGE)
       .transform(parseReaisToCents)
       .pipe(
         z
-          .number('Informe um valor em reais, como 100,00.')
+          .number(INVALID_AMOUNT_MESSAGE)
           .int()
           .positive('O depósito precisa ser maior que zero.')
           .max(
