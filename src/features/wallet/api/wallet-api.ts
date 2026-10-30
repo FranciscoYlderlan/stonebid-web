@@ -33,7 +33,7 @@ export const movementsQueryOptions = () =>
 
 export type DepositInput = {
   amountCents: number
-  /** Uma chave por envio: repetir a mesma chave não deposita de novo (RN-18). */
+  /** Uma chave por depósito, reusada nas novas tentativas: repetir a mesma chave não deposita de novo (RN-18). */
   idempotencyKey: string
 }
 

@@ -27,8 +27,11 @@ function initials(name: string) {
     .join('')
 }
 
-/** Botão quadrado de 40 px abaixo de `sm`; do `sm` para cima, o tamanho padrão. */
-const VISITOR_BUTTON = 'size-10 px-0 sm:h-8 sm:w-auto sm:px-2.5'
+/**
+ * Alvo de toque de 40 × 40 px em todo botão do cabeçalho. Abaixo de `sm` o botão é um
+ * quadrado só com ícone (o nome fica no `aria-label`); do `sm` para cima ganha o texto.
+ */
+const HEADER_BUTTON = 'size-10 px-0 sm:w-auto sm:min-w-10 sm:px-3'
 
 /**
  * Lado direito do cabeçalho: Entrar/Cadastrar para visitante. Para quem entrou,
@@ -39,7 +42,7 @@ export function SessionActions() {
   const { user, isPending } = useSession()
   const logout = useLogout()
 
-  if (isPending) return <Skeleton className="h-8 w-28" />
+  if (isPending) return <Skeleton className="h-10 w-28" />
 
   if (!user) {
     return (
@@ -48,13 +51,13 @@ export function SessionActions() {
          * Abaixo de `sm` Entrar e Cadastrar ficam só com o ícone, num alvo de
          * toque de 40 px: com o texto, o Cadastrar encostava na borda a 320 px.
          */}
-        <Button variant="ghost" asChild className={VISITOR_BUTTON}>
+        <Button variant="ghost" asChild className={HEADER_BUTTON}>
           <Link to="/login" aria-label="Entrar">
             <LogIn aria-hidden className="sm:hidden" />
             <span className="hidden sm:inline">Entrar</span>
           </Link>
         </Button>
-        <Button asChild className={VISITOR_BUTTON}>
+        <Button asChild className={HEADER_BUTTON}>
           <Link to="/register" aria-label="Cadastrar">
             <UserPlus aria-hidden className="sm:hidden" />
             <span className="hidden sm:inline">Cadastrar</span>
@@ -70,7 +73,7 @@ export function SessionActions() {
   return (
     <div className="flex min-w-0 items-center gap-1">
       {roleItems.map(({ to, label, icon: Icon }) => (
-        <Button key={to} variant="ghost" asChild>
+        <Button key={to} variant="ghost" asChild className={HEADER_BUTTON}>
           <Link to={to} aria-label={label} data-testid="header-role-shortcut">
             <Icon aria-hidden />
             <span className="hidden sm:inline">{label}</span>
@@ -81,7 +84,7 @@ export function SessionActions() {
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
-            className="min-w-0 gap-2 px-1.5"
+            className="h-10 min-w-10 gap-2 px-2"
             aria-label={`Menu de ${user.name}`}
           >
             <Avatar className="size-6">

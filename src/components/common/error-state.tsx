@@ -1,6 +1,7 @@
 import { TriangleAlert } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { getLoadErrorMessage } from '@/lib/load-error'
 
 import { EmptyState } from './empty-state'
 
@@ -11,7 +12,7 @@ type ErrorStateProps = {
   className?: string
 }
 
-/** Falha ao carregar dados: mensagem da API (em português) e "Tentar de novo". */
+/** Falha ao carregar dados: mensagem da API ou a genérica, sempre em português e "Tentar de novo". */
 export function ErrorState({
   title = 'Não foi possível carregar',
   error,
@@ -23,11 +24,7 @@ export function ErrorState({
       className={className}
       icon={<TriangleAlert />}
       title={title}
-      description={
-        error instanceof Error && error.message
-          ? error.message
-          : 'Tente de novo em instantes.'
-      }
+      description={getLoadErrorMessage(error)}
       action={
         onRetry ? (
           <Button variant="outline" onClick={onRetry}>
