@@ -408,6 +408,8 @@ export class MockApi {
   readonly bids = new Map<string, MockBid[]>()
   /** Lote em que o licitante logado lidera (para o `ALREADY_WINNING`). */
   readonly leading = new Set<string>()
+  /** Pseudônimo de cada licitante (por `id`); quem não está aqui é o `MY_PSEUDONYM`. */
+  readonly pseudonyms = new Map<string, string>()
   /** Atraso das respostas de lance, para o teste de duplo clique. */
   bidDelayMs = 0
   /** Quantos lances a API grava e depois perde a resposta (RN-18, como no depósito). */
@@ -698,7 +700,7 @@ export class MockApi {
       // Autenticação opcional: só o licitante com token vê o próprio pseudônimo (RF-30).
       const viewer =
         request.headers()['authorization'] && this.user?.role === 'BIDDER'
-          ? { pseudonym: MY_PSEUDONYM }
+          ? { pseudonym: this.pseudonyms.get(this.user.id) ?? MY_PSEUDONYM }
           : null
       return lot
         ? ok({ serverTime, lot: { ...lot, viewer } })
