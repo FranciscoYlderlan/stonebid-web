@@ -37,14 +37,16 @@ function LotPage() {
             </Button>
           )
         }
+        // Auditoria pública da cadeia de lances (RF-60), para todos, só com a sala carregada.
+        auditSlot={
+          <Button asChild variant="outline">
+            <Link to="/lots/$id/audit" params={{ id }}>
+              <ShieldCheck data-icon="inline-start" aria-hidden />
+              Ver auditoria
+            </Link>
+          </Button>
+        }
       />
-      {/* Auditoria pública da cadeia de lances (RF-60), para todos. */}
-      <Button asChild variant="outline">
-        <Link to="/lots/$id/audit" params={{ id }}>
-          <ShieldCheck data-icon="inline-start" aria-hidden />
-          Ver auditoria
-        </Link>
-      </Button>
     </div>
   )
 }

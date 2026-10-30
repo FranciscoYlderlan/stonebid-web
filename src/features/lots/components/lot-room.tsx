@@ -31,13 +31,18 @@ type LotRoomProps = {
    * o lote ao vivo; `null` não mostra nada (leiloeiro).
    */
   bidSlot: ReactNode
+  /**
+   * Abaixo da sala, só quando o lote carregou (ex.: o link "Ver auditoria", RF-60). Com o
+   * lote inexistente (404) ou em erro, não aparece: não há auditoria a mostrar.
+   */
+  auditSlot?: ReactNode
 }
 
 /**
  * Sala do lote ao vivo: obra, lance atual e líder, contagem, histórico público e o espaço do
  * lance. Atualiza pelo stream SSE (`useLotStream`); com o stream fora, recarrega a cada 3 s.
  */
-export function LotRoom({ id, bidSlot }: LotRoomProps) {
+export function LotRoom({ id, bidSlot, auditSlot }: LotRoomProps) {
   const streaming = useLotStream(id)
   const fallbackMs = streaming ? false : LOT_ROOM_FALLBACK_REFETCH_MS
   const { data, dataUpdatedAt, isPending, isError, error, refetch } = useLot(
@@ -86,54 +91,57 @@ export function LotRoom({ id, bidSlot }: LotRoomProps) {
   ] as const
 
   return (
-    <article className="grid min-w-0 gap-8 md:grid-cols-2">
-      <CoverImage
-        src={lot.imageUrl ? apiUrl(lot.imageUrl) : null}
-        alt={lot.title}
-        className="rounded-xl"
-      />
-      <div className="min-w-0 space-y-6">
-        <header className="space-y-2">
-          <LotStatusBadge status={lot.status} />
-          <h1 className="font-heading text-3xl font-semibold tracking-tight">
-            {lot.title}
-          </h1>
-        </header>
-        <Card>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <LotPrice lot={lot} />
-              {lot.leaderPseudonym && lot.status === 'LIVE' ? (
-                <p className="text-sm text-muted-foreground">
-                  Liderando:{' '}
-                  <span
-                    className="font-medium text-foreground"
-                    data-testid="lot-leader"
-                  >
-                    {lot.leaderPseudonym}
-                  </span>
-                </p>
-              ) : null}
-              <LotRoomCountdown lot={lot} nowMs={nowMs} />
-            </div>
-            <ViewerPosition lot={lot} history={history.data} />
-            {lot.status === 'LIVE' ? bidSlot : <LotOutcome lot={lot} />}
-          </CardContent>
-        </Card>
-        <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
-          {rows.map(([label, value]) => (
-            <div key={label} className="contents">
-              <dt className="text-muted-foreground">{label}</dt>
-              <dd className="font-medium tabular-nums">{value}</dd>
-            </div>
-          ))}
-        </dl>
-        <section className="space-y-2">
-          <h2 className="font-heading text-lg font-semibold">Sobre o item</h2>
-          <ItemAttributes attributes={lot.attributes} />
-        </section>
-      </div>
-      <BidHistory history={history} className="md:col-span-2" />
-    </article>
+    <>
+      <article className="grid min-w-0 gap-8 md:grid-cols-2">
+        <CoverImage
+          src={lot.imageUrl ? apiUrl(lot.imageUrl) : null}
+          alt={lot.title}
+          className="rounded-xl"
+        />
+        <div className="min-w-0 space-y-6">
+          <header className="space-y-2">
+            <LotStatusBadge status={lot.status} />
+            <h1 className="font-heading text-3xl font-semibold tracking-tight">
+              {lot.title}
+            </h1>
+          </header>
+          <Card>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <LotPrice lot={lot} />
+                {lot.leaderPseudonym && lot.status === 'LIVE' ? (
+                  <p className="text-sm text-muted-foreground">
+                    Liderando:{' '}
+                    <span
+                      className="font-medium text-foreground"
+                      data-testid="lot-leader"
+                    >
+                      {lot.leaderPseudonym}
+                    </span>
+                  </p>
+                ) : null}
+                <LotRoomCountdown lot={lot} nowMs={nowMs} />
+              </div>
+              <ViewerPosition lot={lot} history={history.data} />
+              {lot.status === 'LIVE' ? bidSlot : <LotOutcome lot={lot} />}
+            </CardContent>
+          </Card>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
+            {rows.map(([label, value]) => (
+              <div key={label} className="contents">
+                <dt className="text-muted-foreground">{label}</dt>
+                <dd className="font-medium tabular-nums">{value}</dd>
+              </div>
+            ))}
+          </dl>
+          <section className="space-y-2">
+            <h2 className="font-heading text-lg font-semibold">Sobre o item</h2>
+            <ItemAttributes attributes={lot.attributes} />
+          </section>
+        </div>
+        <BidHistory history={history} className="md:col-span-2" />
+      </article>
+      {auditSlot}
+    </>
   )
 }
