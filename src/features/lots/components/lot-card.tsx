@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
+import { useEffect, useRef } from 'react'
 
 import { CoverImage } from '@/components/common/cover-image'
 import {
@@ -20,14 +21,38 @@ type LotCardProps = {
   nowMs: number
   /** Ação extra no rodapé (ex.: Cancelar, no painel do leiloeiro). */
   action?: ReactNode
+  /**
+   * Presente enquanto o card está realçado; a cada valor novo o card rola para o centro
+   * da tela e recebe o foco (ex.: lote recém-criado no painel do leiloeiro).
+   */
+  highlightNonce?: number
 }
 
 /** Card de lote: imagem, título, lance e contagem. O card inteiro leva para /lots/$id. */
-export function LotCard({ lot, nowMs, action }: LotCardProps) {
+export function LotCard({ lot, nowMs, action, highlightNonce }: LotCardProps) {
+  const cardRef = useRef<HTMLDivElement>(null)
+  const linkRef = useRef<HTMLAnchorElement>(null)
+  const highlighted = highlightNonce !== undefined
+
+  useEffect(() => {
+    if (highlightNonce === undefined) return
+    const reduceMotion = window.matchMedia(
+      '(prefers-reduced-motion: reduce)',
+    ).matches
+    cardRef.current?.scrollIntoView({
+      block: 'center',
+      behavior: reduceMotion ? 'auto' : 'smooth',
+    })
+    linkRef.current?.focus({ preventScroll: true })
+  }, [highlightNonce])
+
   return (
     <Card
-      className="relative pt-0 transition-shadow focus-within:ring-2 focus-within:ring-ring hover:ring-foreground/25"
+      ref={cardRef}
+      className="relative scroll-mt-[calc(var(--header-height)+1rem)] pt-0 transition-[box-shadow,background-color] duration-500 focus-within:ring-2 focus-within:ring-ring hover:ring-foreground/25 data-highlighted:bg-primary/10 data-highlighted:shadow-lg data-highlighted:ring-2 data-highlighted:ring-primary motion-reduce:transition-none"
       data-testid="lot-card"
+      data-lot-id={lot.id}
+      data-highlighted={highlighted || undefined}
     >
       <CoverImage
         src={lot.imageUrl ? apiUrl(lot.imageUrl) : null}
@@ -39,6 +64,7 @@ export function LotCard({ lot, nowMs, action }: LotCardProps) {
           <Link
             to="/lots/$id"
             params={{ id: lot.id }}
+            ref={linkRef}
             className="outline-none after:absolute after:inset-0"
           >
             {lot.title}

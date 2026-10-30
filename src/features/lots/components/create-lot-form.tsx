@@ -1,6 +1,5 @@
 import type { FormEvent } from 'react'
 import { useMemo, useState } from 'react'
-import { toast } from 'sonner'
 
 import { SubmitButton } from '@/components/common/submit-button'
 import { TextField } from '@/components/common/text-field'
@@ -62,10 +61,8 @@ export function CreateLotForm({
         endsAt: data.endsAt.toISOString(),
       },
       {
-        onSuccess: (lot) => {
-          toast.success('Lote criado.')
-          onCreated(lot)
-        },
+        // O aviso de sucesso e o destaque do card ficam com o painel (onCreated).
+        onSuccess: onCreated,
         onError: showMutationError,
       },
     )
@@ -115,7 +112,7 @@ export function CreateLotForm({
           />
         </div>
         <SubmitButton pending={createLot.isPending} size="lg">
-          Criar lote
+          {createLot.isPending ? 'Criando lote…' : 'Criar lote'}
         </SubmitButton>
       </FieldGroup>
     </form>
