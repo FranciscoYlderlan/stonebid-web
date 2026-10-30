@@ -7,6 +7,7 @@ import type {
   itemAttributesSchema,
   itemAuctionSchema,
   lotResponseSchema,
+  lotResultSchema,
   lotSchema,
   lotStatusSchema,
   showcaseResponseSchema,
@@ -19,6 +20,7 @@ import type {
 
 export type LotStatus = z.infer<typeof lotStatusSchema>
 export type Lot = z.infer<typeof lotSchema>
+export type LotResult = z.infer<typeof lotResultSchema>
 export type ItemAttributes = z.infer<typeof itemAttributesSchema>
 export type CatalogItem = z.infer<typeof catalogItemSchema>
 export type ItemAuction = z.infer<typeof itemAuctionSchema>
@@ -44,6 +46,9 @@ export type CreateLotInput = {
   startsAt: string
   endsAt: string
 }
+
+/** Corpo do `POST /lots/:id/cancel`, com o id do lote. */
+export type CancelLotInput = { id: string; reason: string }
 
 export type Bid = z.infer<typeof bidSchema>
 export type BidHistoryItem = z.infer<typeof bidHistoryItemSchema>

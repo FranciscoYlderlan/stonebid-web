@@ -1,9 +1,13 @@
 import { ErrorState } from '@/components/common/error-state'
+import { StatCard } from '@/components/common/stat-card'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useServerNow } from '@/hooks/useServerNow'
+import { formatCents } from '@/lib/money'
 
 import { useAuctioneerLots } from '../hooks/useAuctioneerLots'
 import type { LotStatus } from '../types/lot-types'
 import { CancelLotButton } from './cancel-lot-button'
+import { LotOutcome } from './lot-outcome'
 import { LotSection } from './lot-section'
 import { LotSectionSkeleton } from './lot-section-skeleton'
 
@@ -19,7 +23,10 @@ const CANCELABLE: readonly LotStatus[] = ['SCHEDULED', 'LIVE']
 /** Lote a realçar; `nonce` muda a cada pedido, para rolar de novo até ele. */
 export type LotHighlight = { lotId: string; nonce: number }
 
-/** "Meus lotes" (RF-25): só os do leiloeiro, por estado, com Cancelar nos que não acabaram. */
+/**
+ * "Meus lotes" (RF-25): total recebido, e os lotes do leiloeiro por estado, com Cancelar nos
+ * que não acabaram e o resultado (ou o motivo do cancelamento) nos que acabaram.
+ */
 export function AuctioneerLots({
   highlight = null,
 }: {
@@ -34,7 +41,10 @@ export function AuctioneerLots({
         Meus lotes
       </h2>
       {isPending ? (
-        <LotSectionSkeleton />
+        <>
+          <Skeleton className="h-24 max-w-xs rounded-xl" />
+          <LotSectionSkeleton />
+        </>
       ) : isError ? (
         <ErrorState
           title="Não foi possível carregar seus lotes"
@@ -42,22 +52,34 @@ export function AuctioneerLots({
           onRetry={() => void refetch()}
         />
       ) : (
-        GROUPS.map(({ status, title, empty }) => (
-          <LotSection
-            key={status}
-            id={`mine-${status.toLowerCase()}`}
-            title={title}
-            lots={data.items.filter((lot) => lot.status === status)}
-            nowMs={nowMs}
-            emptyTitle={empty}
-            highlight={highlight}
-            renderAction={(lot) =>
-              CANCELABLE.includes(lot.status) ? (
-                <CancelLotButton lot={lot} />
-              ) : null
-            }
-          />
-        ))
+        <>
+          <div className="max-w-xs">
+            <StatCard
+              label="Total recebido"
+              value={formatCents(data.totalReceivedCents)}
+              hint="Soma dos lotes arrematados e liquidados."
+              data-testid="total-received"
+            />
+          </div>
+          {GROUPS.map(({ status, title, empty }) => (
+            <LotSection
+              key={status}
+              id={`mine-${status.toLowerCase()}`}
+              title={title}
+              lots={data.items.filter((lot) => lot.status === status)}
+              nowMs={nowMs}
+              emptyTitle={empty}
+              highlight={highlight}
+              renderAction={(lot) =>
+                CANCELABLE.includes(lot.status) ? (
+                  <CancelLotButton lot={lot} />
+                ) : (
+                  <LotOutcome lot={lot} />
+                )
+              }
+            />
+          ))}
+        </>
       )}
     </section>
   )

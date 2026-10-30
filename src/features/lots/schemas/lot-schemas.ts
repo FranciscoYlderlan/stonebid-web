@@ -19,6 +19,9 @@ export const LOT_STATUS_LABELS: Record<
   CANCELED: 'Cancelado',
 }
 
+/** Resultado de um lote liquidado: arrematado ou encerrado sem lances. */
+export const lotResultSchema = z.enum(['SOLD', 'NO_WINNER'])
+
 export const itemAttributesSchema = z.object({
   artist: z.string().nullish(),
   date: z.string().nullish(),
@@ -45,6 +48,13 @@ export const lotSchema = z.object({
   endsAt: z.string(),
   status: lotStatusSchema,
   canceledAt: z.string().nullish(),
+  /** Resultado da liquidação (lote ENDED); `null` até liquidar. */
+  result: lotResultSchema.nullish(),
+  settledAt: z.string().nullish(),
+  /** Comprovante público do arremate; só com `result` SOLD. */
+  receiptPublicId: z.string().nullish(),
+  /** Motivo que o leiloeiro deu ao cancelar (3 a 280 caracteres). */
+  cancelReason: z.string().nullish(),
 })
 
 export const showcaseResponseSchema = z.object({
@@ -62,6 +72,28 @@ export const lotResponseSchema = z.object({
 export const auctioneerLotsResponseSchema = z.object({
   serverTime: z.string(),
   items: z.array(lotSchema),
+  /** Soma dos créditos de liquidação do leiloeiro (lotes arrematados). */
+  totalReceivedCents: z.number().int(),
+})
+
+/** Limites do motivo do cancelamento, iguais aos do `POST /lots/:id/cancel`. */
+export const CANCEL_REASON_MIN = 3
+export const CANCEL_REASON_MAX = 280
+
+/** Motivo do cancelamento (corpo `{ reason }`), validado no cliente como no servidor. */
+export const cancelLotFormSchema = z.object({
+  reason: z
+    .string()
+    .trim()
+    .min(1, 'Informe o motivo do cancelamento.')
+    .min(
+      CANCEL_REASON_MIN,
+      `O motivo precisa ter pelo menos ${CANCEL_REASON_MIN} caracteres.`,
+    )
+    .max(
+      CANCEL_REASON_MAX,
+      `O motivo pode ter no máximo ${CANCEL_REASON_MAX} caracteres.`,
+    ),
 })
 
 /** RN-19: situação da obra no Stonebid. Agendado e ao vivo = "Em leilão"; arrematado = "Vendido". */
