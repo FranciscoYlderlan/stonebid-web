@@ -5,10 +5,19 @@ import { MOCK_API_URL } from './constants'
 type Role = 'AUCTIONEER' | 'BIDDER'
 type LotStatus = 'SCHEDULED' | 'LIVE' | 'ENDED' | 'CANCELED'
 
+/** Atributos da obra como a API devolve (`ItemAttributes` da stonebid-api). */
+export type ItemAttributes = {
+  artist: string | null
+  date: string | null
+  medium: string | null
+  dimensions: string | null
+  placeOfOrigin: string | null
+}
+
 export type MockLot = {
   id: string
   title: string
-  attributes: Record<string, string>
+  attributes: ItemAttributes
   imageUrl: string
   startingBidCents: number
   minIncrementCents: number
@@ -32,8 +41,22 @@ export type CatalogItem = {
   externalId: string
   title: string
   imageUrl: string
-  attributes: Record<string, string>
+  attributes: Partial<ItemAttributes>
 }
+
+/** Resposta crua para uma rota, por cima do comportamento normal da API simulada. */
+export type MockReply = { status: number; json: unknown }
+
+const NO_ATTRIBUTES: ItemAttributes = {
+  artist: null,
+  date: null,
+  medium: null,
+  dimensions: null,
+  placeOfOrigin: null,
+}
+
+/** Senha de todo usuário da API simulada (login e cadastro). */
+export const MOCK_PASSWORD = 'senha-de-teste'
 
 const HOUR = 60 * 60 * 1000
 
@@ -72,7 +95,7 @@ export function makeLot(
   return {
     id,
     title: `Lote ${id}`,
-    attributes: { artist: 'Artista Teste' },
+    attributes: { ...NO_ATTRIBUTES, artist: 'Artista Teste' },
     imageUrl: `/lots/${id}/image`,
     startingBidCents: 10_000,
     minIncrementCents: 1_000,
@@ -90,14 +113,30 @@ function error(status: number, code: string, message: string) {
   return { status, json: { error: { code, message } } }
 }
 
+/** Centavos em reais, como o `formatCentsAsBRL` da stonebid-api. */
+function brl(cents: number) {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
+    .format(cents / 100)
+    .replace(/\s/g, ' ')
+}
+
+const UNAUTHORIZED = error(
+  401,
+  'UNAUTHORIZED',
+  'É preciso entrar para acessar este recurso.',
+)
+
 /**
- * API simulada em memória, no formato do contrato da stonebid-api.
- * Guarda as requisições para os testes conferirem corpo e cabeçalhos.
+ * API simulada em memória, no formato real da stonebid-api (rotas, corpos, códigos de erro
+ * e mensagens conferidos nos controllers). Guarda as requisições para os testes conferirem
+ * corpo e cabeçalhos.
  */
 export class MockApi {
   /** Hora do servidor; os testes usam uma bem diferente da local de propósito. */
   serverTime = new Date()
   user: (typeof USERS)[Role] | null = null
+  /** Contas para login e cadastro; todas com a senha `MOCK_PASSWORD`. */
+  accounts: (typeof USERS)[Role][] = [USERS.AUCTIONEER, USERS.BIDDER]
   lots: MockLot[] = []
   myLotIds = new Set<string>()
   wallet = {
@@ -114,6 +153,7 @@ export class MockApi {
   depositDelayMs = 0
   readonly requests: Request[] = []
   private readonly depositsByKey = new Map<string, MockMovement>()
+  private readonly overrides = new Map<string, MockReply>()
 
   private readonly page: Page
 
@@ -123,6 +163,12 @@ export class MockApi {
 
   loginAs(role: Role) {
     this.user = USERS[role]
+    return this
+  }
+
+  /** Força a resposta de uma rota (ex.: corpo fora do contrato, para testar o erro genérico). */
+  replyWith(method: string, path: string, reply: MockReply) {
+    this.overrides.set(`${method} ${path}`, reply)
     return this
   }
 
@@ -149,9 +195,9 @@ export class MockApi {
     // A API simulada mora em outra origem: responde o CORS como a real.
     const cors = {
       'Access-Control-Allow-Origin': request.headers()['origin'] ?? '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
       'Access-Control-Allow-Headers':
-        'Authorization, Content-Type, Accept, Idempotency-Key',
+        'Content-Type, Authorization, Idempotency-Key',
     }
     if (request.method() === 'OPTIONS')
       return route.fulfill({ status: 204, headers: cors })
@@ -176,10 +222,42 @@ export class MockApi {
     const serverTime = this.serverTime.toISOString()
     const ok = (json: unknown, status = 200) => ({ status, json })
 
+    const override = this.overrides.get(`${method} ${path}`)
+    if (override) return override
+
+    if (method === 'POST' && path === '/auth/login') {
+      const { email, password } = request.postDataJSON() as {
+        email: string
+        password: string
+      }
+      const user = this.accounts.find((account) => account.email === email)
+      if (!user || password !== MOCK_PASSWORD)
+        return error(401, 'INVALID_CREDENTIALS', 'E-mail ou senha inválidos.')
+      this.user = user
+      return ok({ user, token: 'token-de-teste' })
+    }
+
+    if (method === 'POST' && path === '/auth/register') {
+      const body = request.postDataJSON() as {
+        name: string
+        email: string
+        role: Role
+      }
+      if (this.accounts.some((account) => account.email === body.email))
+        return error(409, 'EMAIL_TAKEN', 'Este e-mail já está cadastrado.')
+      const user = {
+        id: `u-${this.accounts.length + 1}`,
+        name: body.name,
+        email: body.email,
+        role: body.role,
+      }
+      this.accounts.push(user)
+      this.user = user
+      return ok({ user, token: 'token-de-teste' }, 201)
+    }
+
     if (method === 'GET' && path === '/auth/me') {
-      return this.user
-        ? ok({ user: this.user })
-        : error(401, 'UNAUTHORIZED', 'Faça login.')
+      return this.user ? ok({ user: this.user }) : UNAUTHORIZED
     }
 
     if (method === 'GET' && path === '/lots') {
@@ -198,12 +276,16 @@ export class MockApi {
       const lot = this.lots.find((item) => item.id === lotMatch[1])
       return lot
         ? ok({ serverTime, lot })
-        : error(404, 'NOT_FOUND', 'Lote não encontrado.')
+        : error(404, 'LOT_NOT_FOUND', 'Lote não encontrado.')
     }
 
     // Daqui para baixo, só com login e o papel certo (RF-02).
-    if (!this.user) return error(401, 'UNAUTHORIZED', 'Faça login.')
-    const forbidden = error(403, 'FORBIDDEN', 'Ação não permitida.')
+    if (!this.user) return UNAUTHORIZED
+    const forbidden = error(
+      403,
+      'FORBIDDEN',
+      'Seu papel não permite esta ação.',
+    )
 
     if (path.startsWith('/wallet') && this.user.role !== 'BIDDER')
       return forbidden
@@ -222,17 +304,31 @@ export class MockApi {
     if (method === 'POST' && path === '/wallet/deposits') {
       const key = request.headers()['idempotency-key']
       if (!key)
-        return error(400, 'VALIDATION_ERROR', 'Idempotency-Key obrigatória.')
+        return error(
+          400,
+          'VALIDATION_ERROR',
+          'Envie o cabeçalho Idempotency-Key (8 a 128 caracteres).',
+        )
+      const { amountCents } = request.postDataJSON() as { amountCents: number }
       const existing = this.depositsByKey.get(key)
+      if (existing && existing.amountCents !== amountCents)
+        return error(
+          409,
+          'IDEMPOTENCY_KEY_REUSED',
+          'Esta Idempotency-Key já foi usada com outro valor. Gere uma chave nova para outro depósito.',
+        )
       if (existing)
         return {
           status: 200,
           json: { movement: existing, wallet: this.wallet },
           delayMs: this.depositDelayMs,
         }
-      const { amountCents } = request.postDataJSON() as { amountCents: number }
       if (amountCents > this.wallet.depositLimitCents)
-        return error(400, 'DEPOSIT_LIMIT', 'Depósito acima do teto.')
+        return error(
+          400,
+          'DEPOSIT_LIMIT_EXCEEDED',
+          `O depósito máximo é de ${brl(this.wallet.depositLimitCents)} por operação.`,
+        )
       const movement: MockMovement = {
         id: `m-${this.movements.length + 1}`,
         type: 'DEPOSIT',
@@ -259,14 +355,19 @@ export class MockApi {
         return error(
           502,
           'EXTERNAL_API_UNAVAILABLE',
-          'O acervo de arte está fora do ar. Tente de novo em alguns minutos.',
+          'A API de itens (Art Institute of Chicago) não respondeu. Tente de novo em instantes.',
         )
       const q = (url.searchParams.get('q') ?? '').toLowerCase()
+      const items = this.catalog
+        .filter((item) => item.title.toLowerCase().includes(q))
+        .map((item) => ({
+          ...item,
+          attributes: { ...NO_ATTRIBUTES, ...item.attributes },
+        }))
       return ok({
-        items: this.catalog.filter((item) =>
-          item.title.toLowerCase().includes(q),
-        ),
+        items,
         page: Number(url.searchParams.get('page') ?? 1),
+        totalPages: items.length > 0 ? 1 : 0,
       })
     }
 
@@ -285,14 +386,19 @@ export class MockApi {
         endsAt: string
       }
       const item = this.catalog.find((c) => c.externalId === body.externalId)
-      if (!item) return error(404, 'NOT_FOUND', 'Item não encontrado.')
+      if (!item)
+        return error(
+          404,
+          'ITEM_NOT_FOUND',
+          'Item não encontrado na API de itens ou sem imagem disponível.',
+        )
       const lot = makeLot(
         `novo-${this.lots.length + 1}`,
         'SCHEDULED',
         this.serverTime,
         {
           title: item.title,
-          attributes: item.attributes,
+          attributes: { ...NO_ATTRIBUTES, ...item.attributes },
           startingBidCents: body.startingBidCents,
           minIncrementCents: body.minIncrementCents,
           startsAt: body.startsAt,
@@ -307,11 +413,25 @@ export class MockApi {
 
     const cancelMatch = path.match(/^\/lots\/([^/]+)\/cancel$/)
     if (method === 'POST' && cancelMatch) {
-      if (this.user.role !== 'AUCTIONEER') return forbidden
-      if (this.cancelConflict)
-        return error(409, 'LOT_HAS_BIDS', this.cancelConflict)
       const lot = this.lots.find((item) => item.id === cancelMatch[1])
-      if (!lot) return error(404, 'NOT_FOUND', 'Lote não encontrado.')
+      if (!lot) return error(404, 'LOT_NOT_FOUND', 'Lote não encontrado.')
+      if (!this.myLotIds.has(lot.id))
+        return error(
+          403,
+          'FORBIDDEN',
+          'Só o leiloeiro que criou o lote pode cancelá-lo.',
+        )
+      if (lot.status === 'CANCELED')
+        return error(409, 'LOT_NOT_CANCELABLE', 'O lote já está cancelado.')
+      if (lot.status === 'ENDED')
+        return error(
+          409,
+          'LOT_NOT_CANCELABLE',
+          'O lote já foi encerrado e não pode ser cancelado.',
+        )
+      // Sem lances no I1: o conflito por lance é forçado pelo teste.
+      if (this.cancelConflict)
+        return error(409, 'LOT_NOT_CANCELABLE', this.cancelConflict)
       lot.status = 'CANCELED'
       lot.canceledAt = serverTime
       return ok(lot)
