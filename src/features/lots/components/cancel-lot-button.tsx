@@ -101,15 +101,15 @@ export function CancelLotButton({
     const data = form.validate()
     if (!data) return
     setApiError(null)
-    cancelLot.mutate(
-      { id: lot.id, reason: data.reason },
-      {
-        onSuccess: () => {
-          toast.success('Lote cancelado.')
-          handleOpenChange(false)
-        },
-        onError: (error) => setApiError(getMutationErrorMessage(error)),
+    // Promessa, não os callbacks do `mutate`: o lote cancelado sai do grupo e este botão
+    // desmonta quando a lista recarrega, e aí os callbacks do `mutate` nunca rodam.
+    cancelLot.mutateAsync({ id: lot.id, reason: data.reason }).then(
+      () => {
+        toast.success('Lote cancelado.')
+        setOpen(false)
+        form.setValue('reason', '')
       },
+      (error: unknown) => setApiError(getMutationErrorMessage(error)),
     )
   }
 
