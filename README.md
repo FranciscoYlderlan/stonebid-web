@@ -34,13 +34,14 @@ npm run dev            # http://localhost:5173
 
 ## Telas
 
-| Rota          | Acesso      | O que mostra                                                                                         |
-| ------------- | ----------- | ---------------------------------------------------------------------------------------------------- |
-| `/`           | Público     | Vitrine: ao vivo, agendados e encerrados (cancelados ficam fora), com contagem pela hora do servidor |
-| `/lots/:id`   | Público     | Dados do lote, só leitura                                                                            |
-| `/wallet`     | Licitante   | Saldos total, comprometido e disponível; depósito (uma `Idempotency-Key` por envio) e extrato        |
-| `/auctioneer` | Leiloeiro   | Busca no acervo, criação de lote e "Meus lotes" por estado, com Cancelar                             |
-| `/account`    | Quem entrou | Dados da conta                                                                                       |
+| Rota           | Acesso      | O que mostra                                                                                         |
+| -------------- | ----------- | ---------------------------------------------------------------------------------------------------- |
+| `/`            | Público     | Vitrine: ao vivo, agendados e encerrados (cancelados ficam fora), com contagem pela hora do servidor |
+| `/lots/:id`    | Público     | Sala do lote: lance atual, líder, histórico público de lances e "Dar lance" (leva ao login e volta)  |
+| `/bidding/:id` | Licitante   | Mesma sala com o painel de lance (uma `Idempotency-Key` por lance); leiloeiro vai para `/lots/:id`   |
+| `/wallet`      | Licitante   | Saldos total, comprometido e disponível; depósito (uma `Idempotency-Key` por envio) e extrato        |
+| `/auctioneer`  | Leiloeiro   | Busca no acervo, criação de lote e "Meus lotes" por estado, com Cancelar                             |
+| `/account`     | Quem entrou | Dados da conta                                                                                       |
 
 A sidebar da área logada mostra só os links do papel da conta. Quem abre a tela do outro papel vê um aviso; a proteção real é do servidor.
 

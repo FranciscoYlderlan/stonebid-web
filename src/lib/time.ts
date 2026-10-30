@@ -8,6 +8,16 @@ export function formatDateTime(iso: string): string {
   return dateTime.format(new Date(iso))
 }
 
+const dateTimeWithSeconds = new Intl.DateTimeFormat('pt-BR', {
+  dateStyle: 'short',
+  timeStyle: 'medium',
+})
+
+/** Data ISO (UTC) → "29/10/2026, 14:30:05": lances do mesmo minuto ficam distinguíveis. */
+export function formatDateTimeWithSeconds(iso: string): string {
+  return dateTimeWithSeconds.format(new Date(iso))
+}
+
 const pad = (value: number) => String(value).padStart(2, '0')
 
 /** Milissegundos restantes → "2d 03:04:05" ou "03:04:05" (nunca negativo). */

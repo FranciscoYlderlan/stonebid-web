@@ -11,6 +11,11 @@ import type {
   lotStatusSchema,
   showcaseResponseSchema,
 } from '../schemas/lot-schemas'
+import type {
+  bidHistoryItemSchema,
+  bidSchema,
+  placeBidResponseSchema,
+} from '../schemas/bid-schemas'
 
 export type LotStatus = z.infer<typeof lotStatusSchema>
 export type Lot = z.infer<typeof lotSchema>
@@ -38,4 +43,16 @@ export type CreateLotInput = {
   minIncrementCents: number
   startsAt: string
   endsAt: string
+}
+
+export type Bid = z.infer<typeof bidSchema>
+export type BidHistoryItem = z.infer<typeof bidHistoryItemSchema>
+export type PlaceBidResponse = z.infer<typeof placeBidResponseSchema>
+
+/** Corpo e cabeçalho do `POST /lots/:id/bids`. */
+export type PlaceBidInput = {
+  lotId: string
+  amountCents: number
+  /** Uma chave por lance, reusada nas novas tentativas do mesmo valor (RN-18). */
+  idempotencyKey: string
 }

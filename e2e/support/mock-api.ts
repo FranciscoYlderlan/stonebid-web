@@ -22,6 +22,8 @@ export type MockLot = {
   startingBidCents: number
   minIncrementCents: number
   currentBidCents: number | null
+  minNextBidCents: number
+  leaderPseudonym: string | null
   startsAt: string
   originalEndsAt: string
   endsAt: string
@@ -48,6 +50,15 @@ export type CatalogItem = {
 export type ItemAuction = {
   status: 'SCHEDULED' | 'LIVE' | 'SOLD'
   lotId: string
+}
+
+/** Lance gravado, como o `BidDto` da stonebid-api (contrato do I2). */
+export type MockBid = {
+  seq: number
+  lotId: string
+  amountCents: number
+  pseudonym: string
+  createdAt: string
 }
 
 /** Resposta crua para uma rota, por cima do comportamento normal da API simulada. */
@@ -106,6 +117,8 @@ export function makeLot(
     startingBidCents: 10_000,
     minIncrementCents: 1_000,
     currentBidCents: null,
+    minNextBidCents: overrides.startingBidCents ?? 10_000,
+    leaderPseudonym: null,
     startsAt: new Date(startsAt).toISOString(),
     originalEndsAt: new Date(endsAt).toISOString(),
     endsAt: new Date(endsAt).toISOString(),
@@ -145,6 +158,21 @@ function brl(cents: number) {
     .replace(/\s/g, ' ')
 }
 
+/** Pseudônimo do licitante logado nos lances da API simulada. */
+export const MY_PSEUDONYM = 'Licitante 7F3A'
+
+/** Mensagens das recusas de lance (RF-70), no formato da stonebid-api. */
+export const BID_MESSAGES = {
+  notStarted: 'O lote ainda não começou. Os lances abrem no início do lote.',
+  ended: 'O lote já foi encerrado e não aceita mais lances.',
+  canceled: 'O lote foi cancelado e não aceita lances.',
+  alreadyWinning: 'Você já tem o maior lance deste lote.',
+  belowMinimum: (minCents: number) =>
+    `O lance mínimo agora é ${brl(minCents)}.`,
+  insufficientFunds: (availableCents: number) =>
+    `Saldo insuficiente: você tem ${brl(availableCents)} disponível.`,
+} as const
+
 const UNAUTHORIZED = error(
   401,
   'UNAUTHORIZED',
@@ -176,6 +204,15 @@ export class MockApi {
   readonly lotItems = new Map<string, string>()
   searchFails = false
   cancelConflict: string | null = null
+  /** Lances de cada lote, do mais antigo ao mais novo. */
+  readonly bids = new Map<string, MockBid[]>()
+  /** Lote em que o licitante logado lidera (para o `ALREADY_WINNING`). */
+  readonly leading = new Set<string>()
+  /** Atraso das respostas de lance, para o teste de duplo clique. */
+  bidDelayMs = 0
+  /** Quantos lances a API grava e depois perde a resposta (RN-18, como no depósito). */
+  dropBidResponses = 0
+  private readonly bidsByKey = new Map<string, MockBid>()
   /** Atraso das respostas de depósito, para o teste de duplo clique. */
   depositDelayMs = 0
   /**
@@ -226,6 +263,29 @@ export class MockApi {
     return null
   }
 
+  /** Lance de outro licitante já gravado no lote (histórico, lance atual e líder). */
+  addBid(lotId: string, amountCents: number, pseudonym: string) {
+    const lot = this.lots.find((item) => item.id === lotId)
+    if (!lot) throw new Error(`Lote ${lotId} não existe na API simulada`)
+    const list = this.bids.get(lotId) ?? []
+    const bid: MockBid = {
+      seq: list.length + 1,
+      lotId,
+      amountCents,
+      pseudonym,
+      createdAt: new Date(
+        this.serverTime.getTime() - (10 - list.length) * 60_000,
+      ).toISOString(),
+    }
+    this.bids.set(lotId, [...list, bid])
+    lot.currentBidCents = amountCents
+    lot.minNextBidCents = amountCents + lot.minIncrementCents
+    lot.leaderPseudonym = pseudonym
+    if (pseudonym === MY_PSEUDONYM) this.leading.add(lotId)
+    else this.leading.delete(lotId)
+    return this
+  }
+
   requestsTo(method: string, path: string) {
     return this.requests.filter(
       (request) =>
@@ -265,6 +325,15 @@ export class MockApi {
       this.dropDepositResponses > 0
     ) {
       this.dropDepositResponses -= 1
+      return route.abort('connectionreset')
+    }
+    if (
+      request.method() === 'POST' &&
+      /^\/lots\/[^/]+\/bids$/.test(url.pathname) &&
+      reply.status < 300 &&
+      this.dropBidResponses > 0
+    ) {
+      this.dropBidResponses -= 1
       return route.abort('connectionreset')
     }
     return route.fulfill({
@@ -341,8 +410,30 @@ export class MockApi {
         : error(404, 'LOT_NOT_FOUND', 'Lote não encontrado.')
     }
 
+    const bidsMatch = path.match(/^\/lots\/([^/]+)\/bids$/)
+    if (method === 'GET' && bidsMatch) {
+      if (!this.lots.some((item) => item.id === bidsMatch[1]))
+        return error(404, 'LOT_NOT_FOUND', 'Lote não encontrado.')
+      // Público e sem nome nem e-mail: só pseudônimo, valor e hora, seq decrescente.
+      const items = [...(this.bids.get(bidsMatch[1]!) ?? [])]
+        .reverse()
+        .map(({ seq, amountCents, pseudonym, createdAt }) => ({
+          seq,
+          amountCents,
+          pseudonym,
+          createdAt,
+        }))
+      return ok({ items })
+    }
+
     // Daqui para baixo, só com login e o papel certo (RF-02).
     if (!this.user) return UNAUTHORIZED
+
+    if (method === 'POST' && bidsMatch) {
+      if (this.user.role !== 'BIDDER')
+        return error(403, 'FORBIDDEN', 'Seu papel não permite esta ação.')
+      return this.placeBid(bidsMatch[1]!, request)
+    }
     const forbidden = error(
       403,
       'FORBIDDEN',
@@ -510,5 +601,69 @@ export class MockApi {
     }
 
     return error(404, 'NOT_FOUND', 'Recurso não encontrado.')
+  }
+
+  /** `POST /lots/:id/bids`, na ordem de checagem do contrato do I2 (RF-70). */
+  private placeBid(
+    lotId: string,
+    request: Request,
+  ): { status: number; json: unknown; delayMs?: number } {
+    const delayMs = this.bidDelayMs
+    const key = request.headers()['idempotency-key']
+    if (!key)
+      return error(
+        400,
+        'VALIDATION_ERROR',
+        'Envie o cabeçalho Idempotency-Key (8 a 128 caracteres).',
+      )
+    const { amountCents } = request.postDataJSON() as { amountCents: number }
+    const lot = this.lots.find((item) => item.id === lotId)
+    if (!lot) return error(404, 'LOT_NOT_FOUND', 'Lote não encontrado.')
+
+    const replay = this.bidsByKey.get(key)
+    if (replay)
+      return {
+        status: 200,
+        json: { bid: replay, lot, wallet: this.wallet },
+        delayMs,
+      }
+
+    if (lot.status === 'SCHEDULED')
+      return error(409, 'LOT_NOT_STARTED', BID_MESSAGES.notStarted)
+    if (lot.status === 'ENDED')
+      return error(409, 'LOT_ENDED', BID_MESSAGES.ended)
+    if (lot.status === 'CANCELED')
+      return error(409, 'LOT_CANCELED', BID_MESSAGES.canceled)
+    if (this.leading.has(lotId))
+      return error(409, 'ALREADY_WINNING', BID_MESSAGES.alreadyWinning)
+    if (amountCents < lot.minNextBidCents)
+      return error(
+        422,
+        'BID_BELOW_MINIMUM',
+        BID_MESSAGES.belowMinimum(lot.minNextBidCents),
+        { minAmountCents: lot.minNextBidCents },
+      )
+    if (amountCents > this.wallet.availableCents)
+      return error(
+        422,
+        'INSUFFICIENT_FUNDS',
+        BID_MESSAGES.insufficientFunds(this.wallet.availableCents),
+        { availableCents: this.wallet.availableCents },
+      )
+
+    this.addBid(lotId, amountCents, MY_PSEUDONYM)
+    const list = this.bids.get(lotId)!
+    const bid = {
+      ...list[list.length - 1]!,
+      createdAt: this.serverTime.toISOString(),
+    }
+    list[list.length - 1] = bid
+    this.bidsByKey.set(key, bid)
+    this.wallet = {
+      ...this.wallet,
+      committedCents: this.wallet.committedCents + amountCents,
+      availableCents: this.wallet.availableCents - amountCents,
+    }
+    return { status: 201, json: { bid, lot, wallet: this.wallet }, delayMs }
   }
 }

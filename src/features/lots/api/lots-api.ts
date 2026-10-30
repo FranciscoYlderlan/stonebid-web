@@ -11,11 +11,18 @@ import {
   lotSchema,
   showcaseResponseSchema,
 } from '../schemas/lot-schemas'
+import {
+  bidHistoryResponseSchema,
+  placeBidResponseSchema,
+} from '../schemas/bid-schemas'
 import type {
   AuctioneerLots,
+  BidHistoryItem,
   CreateLotInput,
   Lot,
   LotDetail,
+  PlaceBidInput,
+  PlaceBidResponse,
   Showcase,
 } from '../types/lot-types'
 
@@ -23,6 +30,7 @@ export const lotsKeys = {
   all: ['lots'] as const,
   showcase: () => [...lotsKeys.all, 'showcase'] as const,
   detail: (id: string) => [...lotsKeys.all, 'detail', id] as const,
+  bids: (id: string) => [...lotsKeys.all, 'bids', id] as const,
   mine: () => [...lotsKeys.all, 'mine'] as const,
   itemSearchAll: () => ['items', 'search'] as const,
   itemSearch: (q: string, page: number) =>
@@ -53,6 +61,9 @@ export const showcaseQueryOptions = () =>
     refetchInterval: SHOWCASE_REFETCH_MS,
   })
 
+/** A sala do lote se atualiza sozinha (lance atual, líder, histórico) até chegar o tempo real. */
+const LOT_ROOM_REFETCH_MS = 15_000
+
 export const lotQueryOptions = (id: string) =>
   queryOptions({
     queryKey: lotsKeys.detail(id),
@@ -62,6 +73,20 @@ export const lotQueryOptions = (id: string) =>
         lotResponseSchema,
         signal,
       ),
+    refetchInterval: LOT_ROOM_REFETCH_MS,
+  })
+
+/** Histórico público de lances do lote (pseudônimo, valor e hora), do mais novo ao mais antigo. */
+export const bidHistoryQueryOptions = (id: string) =>
+  queryOptions({
+    queryKey: lotsKeys.bids(id),
+    queryFn: async ({ signal }): Promise<BidHistoryItem[]> =>
+      bidHistoryResponseSchema.parse(
+        await apiClient.get<unknown>(`/lots/${encodeURIComponent(id)}/bids`, {
+          signal,
+        }),
+      ).items,
+    refetchInterval: LOT_ROOM_REFETCH_MS,
   })
 
 export const auctioneerLotsQueryOptions = () =>
@@ -99,4 +124,18 @@ export async function cancelLotRequest(id: string): Promise<Lot> {
   return lotSchema.parse(
     await apiClient.post<unknown>(`/lots/${encodeURIComponent(id)}/cancel`),
   )
+}
+
+/** Lance (RF-33). A mesma `Idempotency-Key` repetida não grava outro lance (RN-18). */
+export async function placeBidRequest({
+  lotId,
+  amountCents,
+  idempotencyKey,
+}: PlaceBidInput): Promise<PlaceBidResponse> {
+  const data = await apiClient.post<unknown>(
+    `/lots/${encodeURIComponent(lotId)}/bids`,
+    { amountCents },
+    { headers: { 'Idempotency-Key': idempotencyKey } },
+  )
+  return placeBidResponseSchema.parse(data)
 }
