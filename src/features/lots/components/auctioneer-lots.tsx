@@ -5,7 +5,7 @@ import { useServerNow } from '@/hooks/useServerNow'
 import { formatCents } from '@/lib/money'
 
 import { useAuctioneerLots } from '../hooks/useAuctioneerLots'
-import type { LotStatus } from '../types/lot-types'
+import type { Lot, LotStatus } from '../types/lot-types'
 import { CancelLotButton } from './cancel-lot-button'
 import { AuctioneerLotOutcome } from './auctioneer-lot-outcome'
 import { LotSection } from './lot-section'
@@ -18,14 +18,28 @@ const GROUPS: { status: LotStatus; title: string; empty: string }[] = [
   { status: 'CANCELED', title: 'Cancelados', empty: 'Nenhum lote cancelado' },
 ]
 
-const CANCELABLE: readonly LotStatus[] = ['SCHEDULED', 'LIVE']
+/**
+ * Mesma regra do `POST /lots/:id/cancel`: só lote sem lances, nem cancelado nem encerrado (o
+ * servidor encerra pela hora, então o fim conta pela hora do servidor). Fora disso a API
+ * recusa com 409, e o botão nem aparece.
+ */
+function canCancel(
+  lot: Pick<Lot, 'status' | 'currentBidCents' | 'endsAt'>,
+  nowMs: number,
+) {
+  return (
+    (lot.status === 'SCHEDULED' || lot.status === 'LIVE') &&
+    lot.currentBidCents === null &&
+    nowMs < Date.parse(lot.endsAt)
+  )
+}
 
 /** Lote a realçar; `nonce` muda a cada pedido, para rolar de novo até ele. */
 export type LotHighlight = { lotId: string; nonce: number }
 
 /**
  * "Meus lotes" (RF-25): total recebido, e os lotes do leiloeiro por estado, com Cancelar nos
- * que não acabaram e o resultado (ou o motivo do cancelamento) nos que acabaram.
+ * que ainda podem ser cancelados e o resultado (ou o motivo do cancelamento) nos que acabaram.
  */
 export function AuctioneerLots({
   highlight = null,
@@ -71,7 +85,7 @@ export function AuctioneerLots({
               emptyTitle={empty}
               highlight={highlight}
               renderAction={(lot) =>
-                CANCELABLE.includes(lot.status) ? (
+                canCancel(lot, nowMs) ? (
                   <CancelLotButton lot={lot} />
                 ) : (
                   <AuctioneerLotOutcome lot={lot} />
