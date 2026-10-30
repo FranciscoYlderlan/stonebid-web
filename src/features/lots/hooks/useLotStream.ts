@@ -19,7 +19,8 @@ const RECONNECT_MS = 5_000
 /**
  * Tempo real da sala (AD-04): `EventSource` em `GET /lots/:id/events`. Cada evento traz o
  * lote inteiro, que entra no cache do detalhe; o histórico recarrega. O stream é público e
- * vem com `viewer` nulo, então o `viewer` do cache (do `GET /lots/:id` com JWT) fica.
+ * vem com `viewer` nulo, então o `viewer` do cache (do `GET /lots/:id` com JWT) fica; login e
+ * logout zeram esse cache (`startSession`/`endSession`), e o `viewer` de outra sessão não volta.
  * O `EventSource` reconecta sozinho (e, se desistir, a sala abre outro); devolve `true` só enquanto o stream está no ar, para a
  * sala ligar a recarga de 3 s quando ele cai. Lote final (encerrado e liquidado, ou
  * cancelado) fecha o stream.
