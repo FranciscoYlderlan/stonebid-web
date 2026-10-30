@@ -7,7 +7,7 @@ const LABELS: Record<keyof Attributes, string> = {
   date: 'Data',
   medium: 'Técnica',
   dimensions: 'Dimensões',
-  origin: 'Origem',
+  placeOfOrigin: 'Origem',
 }
 
 /** Atributos do item (copiados da API externa), só os que vieram preenchidos. */
