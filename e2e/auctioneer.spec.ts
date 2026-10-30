@@ -1,7 +1,12 @@
 import { expect, test } from '@playwright/test'
 
 import { MOCK_API_URL } from './support/constants'
-import { makeLot, MockApi } from './support/mock-api'
+import {
+  CANCEL_REASON_MESSAGE,
+  makeLot,
+  makeSoldLot,
+  MockApi,
+} from './support/mock-api'
 
 const DAY = 24 * 60 * 60 * 1000
 
@@ -256,7 +261,7 @@ test.describe('Painel do leiloeiro (RF-20 a RF-22, RF-25)', () => {
     ).toHaveCount(0)
   })
 
-  test('cancelar pede confirmação e mostra o motivo da recusa (409)', async ({
+  test('cancelar pede o motivo, mostra a recusa (409) e grava o motivo', async ({
     page,
   }) => {
     const api = new MockApi(page).loginAs('AUCTIONEER')
@@ -266,23 +271,121 @@ test.describe('Painel do leiloeiro (RF-20 a RF-22, RF-25)', () => {
     await api.install()
     await page.goto('/auctioneer')
 
-    await page.getByRole('button', { name: 'Cancelar' }).click()
-    await expect(page.getByRole('alertdialog')).toContainText(
-      'Cancelar este lote?',
+    await page.getByRole('button', { name: 'Cancelar', exact: true }).click()
+    const dialog = page.getByRole('alertdialog')
+    await expect(dialog).toContainText('Cancelar este lote?')
+    const reason = dialog.getByLabel('Motivo do cancelamento')
+
+    // Sem motivo, ou curto demais: barrado no cliente, nada vai à API.
+    await dialog.getByRole('button', { name: 'Cancelar lote' }).click()
+    await expect(dialog.getByRole('alert')).toHaveText(
+      'Informe o motivo do cancelamento.',
     )
-    await page.getByRole('button', { name: 'Cancelar lote' }).click()
-    await expect(
-      page.getByText('O lote já recebeu lances e não pode ser cancelado.'),
-    ).toBeVisible()
+    await reason.fill('  ab  ')
+    await dialog.getByRole('button', { name: 'Cancelar lote' }).click()
+    await expect(dialog.getByRole('alert')).toHaveText(
+      'O motivo precisa ter pelo menos 3 caracteres.',
+    )
+    await reason.fill('x'.repeat(281))
+    await dialog.getByRole('button', { name: 'Cancelar lote' }).click()
+    await expect(dialog.getByRole('alert')).toHaveText(
+      'O motivo pode ter no máximo 280 caracteres.',
+    )
+    expect(api.requestsTo('POST', '/lots/meu/cancel')).toHaveLength(0)
+
+    // Recusa da API (409): a mensagem aparece no diálogo, que segue aberto.
+    await reason.fill('Obra retirada pelo comitente')
+    await dialog.getByRole('button', { name: 'Cancelar lote' }).click()
+    await expect(dialog.getByRole('alert')).toHaveText(
+      'O lote já recebeu lances e não pode ser cancelado.',
+    )
     expect(api.requestsTo('POST', '/lots/meu/cancel')).toHaveLength(1)
 
-    // Sem lances: o cancelamento passa e o lote vai para Cancelados.
+    // Sem lances: o cancelamento passa com o motivo, que o card mostra.
     api.cancelConflict = null
-    await page.getByRole('button', { name: 'Cancelar' }).click()
-    await page.getByRole('button', { name: 'Cancelar lote' }).click()
+    await dialog.getByRole('button', { name: 'Cancelar lote' }).click()
     await expect(page.getByText('Lote cancelado.')).toBeVisible()
-    await expect(
-      page.getByTestId('section-mine-canceled').getByTestId('lot-card'),
-    ).toContainText('Lote meu')
+    await expect(dialog).toBeHidden()
+    const requests = api.requestsTo('POST', '/lots/meu/cancel')
+    expect(requests).toHaveLength(2)
+    expect(requests[1]!.postDataJSON()).toEqual({
+      reason: 'Obra retirada pelo comitente',
+    })
+    const card = page
+      .getByTestId('section-mine-canceled')
+      .getByTestId('lot-card')
+    await expect(card).toContainText('Lote meu')
+    await expect(card.getByTestId('lot-outcome')).toHaveText(
+      'Motivo: Obra retirada pelo comitente',
+    )
+  })
+
+  test('mensagem de validação da API (422) aparece no diálogo', async ({
+    page,
+  }) => {
+    const api = new MockApi(page).loginAs('AUCTIONEER')
+    api.lots = [makeLot('meu', 'LIVE', api.serverTime)]
+    api.myLotIds.add('meu')
+    api.replyWith('POST', '/lots/meu/cancel', {
+      status: 422,
+      json: {
+        error: { code: 'VALIDATION_ERROR', message: CANCEL_REASON_MESSAGE },
+      },
+    })
+    await api.install()
+    await page.goto('/auctioneer')
+
+    await page.getByRole('button', { name: 'Cancelar', exact: true }).click()
+    const dialog = page.getByRole('alertdialog')
+    await dialog.getByLabel('Motivo do cancelamento').fill('Motivo válido')
+    await dialog.getByRole('button', { name: 'Cancelar lote' }).click()
+    await expect(dialog.getByRole('alert')).toHaveText(CANCEL_REASON_MESSAGE)
+  })
+
+  test('mostra o total recebido e o resultado de cada lote encerrado', async ({
+    page,
+  }) => {
+    const api = new MockApi(page).loginAs('AUCTIONEER')
+    const sold = makeSoldLot('vendido', api.serverTime, {
+      amountCents: 123_450,
+      winner: 'Licitante 7F3A9C',
+      receiptPublicId: 'rcpt-vendido',
+    })
+    api.lots = [
+      sold.lot,
+      makeLot('vazio', 'ENDED', api.serverTime, { result: 'NO_WINNER' }),
+      makeLot('pendente', 'ENDED', api.serverTime),
+      makeLot('cancelado', 'CANCELED', api.serverTime, {
+        cancelReason: 'Erro no cadastro',
+      }),
+    ]
+    for (const lot of api.lots) api.myLotIds.add(lot.id)
+    api.receipts.set(sold.receipt.publicId, sold.receipt)
+    api.totalReceivedCents = 123_450
+    await api.install()
+    await page.goto('/auctioneer')
+
+    await expect(page.getByTestId('total-received')).toHaveText(
+      /R\$\s1\.234,50/,
+    )
+    const outcome = (id: string) =>
+      page.locator(`[data-lot-id="${id}"]`).getByTestId('lot-outcome')
+    await expect(outcome('vendido')).toContainText('Arrematado por R$')
+    await expect(outcome('vendido')).toContainText('1.234,50')
+    await expect(outcome('vendido')).toContainText('Licitante 7F3A9C')
+    await expect(outcome('vazio')).toHaveText(
+      'Encerrado sem lances: não arrematado.',
+    )
+    await expect(outcome('pendente')).toHaveText(
+      'Encerrado: aguardando a liquidação.',
+    )
+    await expect(outcome('cancelado')).toHaveText('Motivo: Erro no cadastro')
+
+    // O comprovante do lote vendido abre a partir do painel.
+    await outcome('vendido').getByRole('link', { name: 'Comprovante' }).click()
+    await expect(page).toHaveURL(/\/receipts\/rcpt-vendido$/)
+    await expect(page.getByTestId('receipt-winner')).toHaveText(
+      'Licitante 7F3A9C',
+    )
   })
 })

@@ -18,6 +18,7 @@ import {
 import type {
   AuctioneerLots,
   BidHistoryItem,
+  CancelLotInput,
   CreateLotInput,
   Lot,
   LotDetail,
@@ -120,9 +121,15 @@ export async function createLotRequest(input: CreateLotInput): Promise<Lot> {
   return lotSchema.parse(await apiClient.post<unknown>('/lots', input))
 }
 
-export async function cancelLotRequest(id: string): Promise<Lot> {
+/** Cancelamento (RF-22) com o motivo obrigatório, que o lote passa a mostrar. */
+export async function cancelLotRequest({
+  id,
+  reason,
+}: CancelLotInput): Promise<Lot> {
   return lotSchema.parse(
-    await apiClient.post<unknown>(`/lots/${encodeURIComponent(id)}/cancel`),
+    await apiClient.post<unknown>(`/lots/${encodeURIComponent(id)}/cancel`, {
+      reason,
+    }),
   )
 }
 
