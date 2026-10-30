@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import type { FormEvent } from 'react'
 import { toast } from 'sonner'
 
+import { SubmitButton } from '@/components/common/submit-button'
 import { TextField } from '@/components/common/text-field'
 import { FieldGroup } from '@/components/ui/field'
 import { useZodForm } from '@/hooks/useZodForm'
@@ -10,7 +11,6 @@ import { useLogin } from '../hooks/useLogin'
 import { loginSchema } from '../schemas/auth-schemas'
 import type { User } from '../types/auth-types'
 import { AuthCard } from './auth-card'
-import { SubmitButton } from './submit-button'
 
 type LoginFormProps = {
   redirect?: string
@@ -66,7 +66,9 @@ export function LoginForm({ redirect, onSuccess }: LoginFormProps) {
             error={form.errors.password}
             onChange={(event) => form.setValue('password', event.target.value)}
           />
-          <SubmitButton pending={login.isPending}>Entrar</SubmitButton>
+          <SubmitButton pending={login.isPending} size="lg" className="w-full">
+            Entrar
+          </SubmitButton>
         </FieldGroup>
       </form>
     </AuthCard>
