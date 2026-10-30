@@ -16,6 +16,9 @@ import { Route as AuthLoginRouteImport } from './_auth/login'
 import { Route as AuthRegisterRouteImport } from './_auth/register'
 import { Route as PublicIndexRouteImport } from './_public/index'
 import { Route as AppAccountIndexRouteImport } from './_app/account/index'
+import { Route as AppAuctioneerIndexRouteImport } from './_app/auctioneer/index'
+import { Route as AppWalletIndexRouteImport } from './_app/wallet/index'
+import { Route as PublicLotsIdRouteImport } from './_public/lots/$id'
 
 const AppRouteRoute = AppRouteRouteImport.update({
   id: '/_app',
@@ -49,18 +52,39 @@ const AppAccountIndexRoute = AppAccountIndexRouteImport.update({
   path: '/account/',
   getParentRoute: () => AppRouteRoute,
 } as any)
+const AppAuctioneerIndexRoute = AppAuctioneerIndexRouteImport.update({
+  id: '/auctioneer/',
+  path: '/auctioneer/',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppWalletIndexRoute = AppWalletIndexRouteImport.update({
+  id: '/wallet/',
+  path: '/wallet/',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const PublicLotsIdRoute = PublicLotsIdRouteImport.update({
+  id: '/lots/$id',
+  path: '/lots/$id',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof PublicIndexRoute
   '/login': typeof AuthLoginRoute
   '/register': typeof AuthRegisterRoute
+  '/lots/$id': typeof PublicLotsIdRoute
   '/account/': typeof AppAccountIndexRoute
+  '/auctioneer/': typeof AppAuctioneerIndexRoute
+  '/wallet/': typeof AppWalletIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof PublicIndexRoute
   '/login': typeof AuthLoginRoute
   '/register': typeof AuthRegisterRoute
+  '/lots/$id': typeof PublicLotsIdRoute
   '/account': typeof AppAccountIndexRoute
+  '/auctioneer': typeof AppAuctioneerIndexRoute
+  '/wallet': typeof AppWalletIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -70,13 +94,30 @@ export interface FileRoutesById {
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/register': typeof AuthRegisterRoute
   '/_public/': typeof PublicIndexRoute
+  '/_public/lots/$id': typeof PublicLotsIdRoute
   '/_app/account/': typeof AppAccountIndexRoute
+  '/_app/auctioneer/': typeof AppAuctioneerIndexRoute
+  '/_app/wallet/': typeof AppWalletIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/register' | '/account/'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/register'
+    | '/lots/$id'
+    | '/account/'
+    | '/auctioneer/'
+    | '/wallet/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/register' | '/account'
+  to:
+    | '/'
+    | '/login'
+    | '/register'
+    | '/lots/$id'
+    | '/account'
+    | '/auctioneer'
+    | '/wallet'
   id:
     | '__root__'
     | '/_app'
@@ -85,7 +126,10 @@ export interface FileRouteTypes {
     | '/_auth/login'
     | '/_auth/register'
     | '/_public/'
+    | '/_public/lots/$id'
     | '/_app/account/'
+    | '/_app/auctioneer/'
+    | '/_app/wallet/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -145,15 +189,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAccountIndexRouteImport
       parentRoute: typeof AppRouteRoute
     }
+    '/_app/auctioneer/': {
+      id: '/_app/auctioneer/'
+      path: '/auctioneer'
+      fullPath: '/auctioneer/'
+      preLoaderRoute: typeof AppAuctioneerIndexRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/wallet/': {
+      id: '/_app/wallet/'
+      path: '/wallet'
+      fullPath: '/wallet/'
+      preLoaderRoute: typeof AppWalletIndexRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_public/lots/$id': {
+      id: '/_public/lots/$id'
+      path: '/lots/$id'
+      fullPath: '/lots/$id'
+      preLoaderRoute: typeof PublicLotsIdRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
   }
 }
 
 interface AppRouteRouteChildren {
   AppAccountIndexRoute: typeof AppAccountIndexRoute
+  AppAuctioneerIndexRoute: typeof AppAuctioneerIndexRoute
+  AppWalletIndexRoute: typeof AppWalletIndexRoute
 }
 
 const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppAccountIndexRoute: AppAccountIndexRoute,
+  AppAuctioneerIndexRoute: AppAuctioneerIndexRoute,
+  AppWalletIndexRoute: AppWalletIndexRoute,
 }
 
 const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
@@ -176,10 +245,12 @@ const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
 
 interface PublicRouteRouteChildren {
   PublicIndexRoute: typeof PublicIndexRoute
+  PublicLotsIdRoute: typeof PublicLotsIdRoute
 }
 
 const PublicRouteRouteChildren: PublicRouteRouteChildren = {
   PublicIndexRoute: PublicIndexRoute,
+  PublicLotsIdRoute: PublicLotsIdRoute,
 }
 
 const PublicRouteRouteWithChildren = PublicRouteRoute._addFileChildren(
