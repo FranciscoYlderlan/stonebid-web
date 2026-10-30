@@ -1,16 +1,24 @@
 import { env } from '@/config/env'
 import { clearSessionToken, getSessionToken } from '@/lib/session-token'
 
-/** Erro no formato da API: `{ error: { code, message } }`. */
+/** Erro no formato da API: `{ error: { code, message, details? } }`. */
 export class ApiError extends Error {
   readonly status: number
   readonly code: string
+  /** Dados extras de alguns erros (ex.: `{ status, lotId }` do `ITEM_ALREADY_AUCTIONED`); quem usa valida. */
+  readonly details: unknown
 
-  constructor(status: number, code: string, message: string) {
+  constructor(
+    status: number,
+    code: string,
+    message: string,
+    details?: unknown,
+  ) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.code = code
+    this.details = details
   }
 }
 
@@ -44,10 +52,18 @@ export function apiUrl(path: string): string {
 async function parseError(response: Response): Promise<ApiError> {
   try {
     const data: unknown = await response.json()
-    const error = (data as { error?: { code?: unknown; message?: unknown } })
-      ?.error
+    const error = (
+      data as {
+        error?: { code?: unknown; message?: unknown; details?: unknown }
+      }
+    )?.error
     if (typeof error?.code === 'string' && typeof error.message === 'string') {
-      return new ApiError(response.status, error.code, error.message)
+      return new ApiError(
+        response.status,
+        error.code,
+        error.message,
+        error.details,
+      )
     }
   } catch {
     // Corpo vazio ou fora do formato: cai na mensagem genérica.

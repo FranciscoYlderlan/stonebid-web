@@ -59,12 +59,48 @@ export const auctioneerLotsResponseSchema = z.object({
   items: z.array(lotSchema),
 })
 
+/** RN-19: situação da obra no Stonebid. Agendado e ao vivo = "Em leilão"; arrematado = "Vendido". */
+export const itemAuctionStatusSchema = z.enum(['SCHEDULED', 'LIVE', 'SOLD'])
+
+export const ITEM_AUCTION_LABELS: Record<
+  z.infer<typeof itemAuctionStatusSchema>,
+  string
+> = {
+  SCHEDULED: 'Em leilão',
+  LIVE: 'Em leilão',
+  SOLD: 'Vendido',
+}
+
+/** Por que a obra não pode ganhar lote novo (RN-19): lido junto do botão desabilitado. */
+export const ITEM_AUCTION_REASONS: Record<
+  z.infer<typeof itemAuctionStatusSchema>,
+  string
+> = {
+  SCHEDULED:
+    'Esta obra já tem um lote agendado. Uma obra só pode estar em um lote por vez.',
+  LIVE: 'Esta obra já está em leilão em um lote ao vivo. Uma obra só pode estar em um lote por vez.',
+  SOLD: 'Esta obra já foi vendida em leilão e não pode ser leiloada de novo.',
+}
+
+export const itemAuctionSchema = z.object({
+  status: itemAuctionStatusSchema,
+  lotId: z.string(),
+})
+
 export const catalogItemSchema = z.object({
   externalId: z.union([z.string(), z.number()]).transform(String),
   title: z.string(),
   /** Relativo à API (`/items/images/{imageId}/thumbnail`): o IIIF da AIC barra o navegador. */
   imageUrl: z.string().nullish(),
   attributes: itemAttributesSchema.catch({}),
+  /**
+   * Lote que bloqueia a obra (RN-19). Ausente, `null` (banco fora) ou fora do contrato = obra
+   * livre: a API recusa com 409 na criação se não for.
+   */
+  auction: itemAuctionSchema
+    .nullish()
+    .transform((auction) => auction ?? null)
+    .catch(null),
 })
 
 export const itemSearchResponseSchema = z.object({
@@ -127,3 +163,11 @@ export function createLotFormSchema(getNowMs: () => number) {
       }
     })
 }
+
+/** Código do 409 da criação quando a obra já tem lote agendado, ao vivo ou arrematado (RN-19). */
+export const ITEM_ALREADY_AUCTIONED = 'ITEM_ALREADY_AUCTIONED'
+
+/** `details` do 409 `ITEM_ALREADY_AUCTIONED`: `null` se vier fora do contrato. */
+export const itemAlreadyAuctionedDetailsSchema = itemAuctionSchema
+  .nullable()
+  .catch(null)

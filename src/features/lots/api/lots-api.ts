@@ -24,8 +24,9 @@ export const lotsKeys = {
   showcase: () => [...lotsKeys.all, 'showcase'] as const,
   detail: (id: string) => [...lotsKeys.all, 'detail', id] as const,
   mine: () => [...lotsKeys.all, 'mine'] as const,
+  itemSearchAll: () => ['items', 'search'] as const,
   itemSearch: (q: string, page: number) =>
-    ['items', 'search', q, page] as const,
+    [...lotsKeys.itemSearchAll(), q, page] as const,
 }
 
 /** GET com `serverTime`: valida e troca a hora do servidor pelo deslocamento do relógio local. */

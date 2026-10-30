@@ -5,6 +5,7 @@ import type {
   catalogItemSchema,
   createLotFormSchema,
   itemAttributesSchema,
+  itemAuctionSchema,
   lotResponseSchema,
   lotSchema,
   lotStatusSchema,
@@ -15,6 +16,7 @@ export type LotStatus = z.infer<typeof lotStatusSchema>
 export type Lot = z.infer<typeof lotSchema>
 export type ItemAttributes = z.infer<typeof itemAttributesSchema>
 export type CatalogItem = z.infer<typeof catalogItemSchema>
+export type ItemAuction = z.infer<typeof itemAuctionSchema>
 
 /** Toda resposta com `serverTime` ganha o deslocamento do relógio, medido na chegada. */
 type WithClock<T> = Omit<T, 'serverTime'> & { clockOffsetMs: number }

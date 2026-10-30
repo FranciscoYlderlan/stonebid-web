@@ -44,6 +44,12 @@ export type CatalogItem = {
   attributes: Partial<ItemAttributes>
 }
 
+/** Situação da obra na busca (RN-19), como o `CatalogItemPresenter` da stonebid-api. */
+export type ItemAuction = {
+  status: 'SCHEDULED' | 'LIVE' | 'SOLD'
+  lotId: string
+}
+
 /** Resposta crua para uma rota, por cima do comportamento normal da API simulada. */
 export type MockReply = { status: number; json: unknown }
 
@@ -109,8 +115,27 @@ export function makeLot(
   }
 }
 
-function error(status: number, code: string, message: string) {
-  return { status, json: { error: { code, message } } }
+function error(
+  status: number,
+  code: string,
+  message: string,
+  details?: unknown,
+) {
+  return {
+    status,
+    json: {
+      error: { code, message, ...(details === undefined ? {} : { details }) },
+    },
+  }
+}
+
+/** Mensagens do `ItemAlreadyAuctionedError` da stonebid-api. */
+const ITEM_ALREADY_AUCTIONED_MESSAGES: Record<ItemAuction['status'], string> = {
+  SCHEDULED:
+    'Esta obra já tem um lote agendado. Uma obra só pode estar em um lote por vez: ' +
+    'para leiloá-la em outro lote, o lote atual precisa ser cancelado.',
+  LIVE: 'Esta obra já está em leilão em um lote ao vivo. Uma obra só pode estar em um lote por vez.',
+  SOLD: 'Esta obra já foi vendida em leilão e não pode ser leiloada de novo.',
 }
 
 /** Centavos em reais, como o `formatCentsAsBRL` da stonebid-api. */
@@ -147,6 +172,8 @@ export class MockApi {
   }
   movements: MockMovement[] = []
   catalog: CatalogItem[] = []
+  /** Obra (`externalId`) de cada lote: guardado no banco, fora do corpo do lote, como na API. */
+  readonly lotItems = new Map<string, string>()
   searchFails = false
   cancelConflict: string | null = null
   /** Atraso das respostas de depósito, para o teste de duplo clique. */
@@ -170,6 +197,28 @@ export class MockApi {
   replyWith(method: string, path: string, reply: MockReply) {
     this.overrides.set(`${method} ${path}`, reply)
     return this
+  }
+
+  /** Põe um lote da obra no ar (RN-19): a busca passa a mostrar o selo. */
+  auctionItem(externalId: string, lot: MockLot) {
+    this.lots.push(lot)
+    this.lotItems.set(lot.id, externalId)
+    return this
+  }
+
+  /**
+   * Lote que bloqueia a obra, como o `findBlockingAuctions` da API: agendado ou ao vivo =
+   * em leilão; encerrado com lance = vendido. Cancelado ou encerrado sem lance libera.
+   */
+  private auctionOf(externalId: string): ItemAuction | null {
+    for (const lot of this.lots) {
+      if (this.lotItems.get(lot.id) !== externalId) continue
+      if (lot.status === 'SCHEDULED' || lot.status === 'LIVE')
+        return { status: lot.status, lotId: lot.id }
+      if (lot.status === 'ENDED' && lot.currentBidCents !== null)
+        return { status: 'SOLD', lotId: lot.id }
+    }
+    return null
   }
 
   requestsTo(method: string, path: string) {
@@ -363,6 +412,7 @@ export class MockApi {
         .map((item) => ({
           ...item,
           attributes: { ...NO_ATTRIBUTES, ...item.attributes },
+          auction: this.auctionOf(item.externalId),
         }))
       return ok({
         items,
@@ -392,6 +442,14 @@ export class MockApi {
           'ITEM_NOT_FOUND',
           'Item não encontrado na API de itens ou sem imagem disponível.',
         )
+      const blocking = this.auctionOf(body.externalId)
+      if (blocking)
+        return error(
+          409,
+          'ITEM_ALREADY_AUCTIONED',
+          ITEM_ALREADY_AUCTIONED_MESSAGES[blocking.status],
+          blocking,
+        )
       const lot = makeLot(
         `novo-${this.lots.length + 1}`,
         'SCHEDULED',
@@ -407,6 +465,7 @@ export class MockApi {
         },
       )
       this.lots.push(lot)
+      this.lotItems.set(lot.id, body.externalId)
       this.myLotIds.add(lot.id)
       return ok(lot, 201)
     }
