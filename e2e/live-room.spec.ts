@@ -132,6 +132,33 @@ test.describe('Sala ao vivo (RF-31)', () => {
     })
   })
 
+  test('prorrogação no mesmo minuto também muda o "Fim" (RN-10)', async ({
+    page,
+  }) => {
+    const api = liveLot(page)
+    // Fim aos 10 s de um minuto; a prorrogação leva aos 40 s do mesmo minuto.
+    const minute = (Math.floor(api.serverTime.getTime() / MINUTE) + 2) * MINUTE
+    api.lots[0]!.endsAt = new Date(minute + 10_000).toISOString()
+    await openRoom(page, api)
+    const end = page.locator('dt:text-is("Fim") + dd')
+    const shown = (ms: number) =>
+      new Intl.DateTimeFormat('pt-BR', {
+        dateStyle: 'short',
+        timeStyle: 'medium',
+        timeZone: 'America/Sao_Paulo',
+      }).format(ms)
+    await expect(end).toHaveText(shown(minute + 10_000))
+
+    api.addBid(LOT, 15_000, OTHER)
+    api.lots[0]!.endsAt = new Date(minute + 40_000).toISOString()
+    await api.emit(LOT, 'bid')
+
+    await expect(page.getByTestId('lot-extended')).toHaveText(
+      'Prorrogado +30 s',
+    )
+    await expect(end).toHaveText(shown(minute + 40_000))
+  })
+
   test('contagem zerada trava o lance; encerrado aguarda a liquidação e mostra o vendido', async ({
     page,
   }) => {
