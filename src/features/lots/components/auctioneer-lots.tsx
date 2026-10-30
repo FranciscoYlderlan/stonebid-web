@@ -16,8 +16,15 @@ const GROUPS: { status: LotStatus; title: string; empty: string }[] = [
 
 const CANCELABLE: readonly LotStatus[] = ['SCHEDULED', 'LIVE']
 
+/** Lote a realçar; `nonce` muda a cada pedido, para rolar de novo até ele. */
+export type LotHighlight = { lotId: string; nonce: number }
+
 /** "Meus lotes" (RF-25): só os do leiloeiro, por estado, com Cancelar nos que não acabaram. */
-export function AuctioneerLots() {
+export function AuctioneerLots({
+  highlight = null,
+}: {
+  highlight?: LotHighlight | null
+}) {
   const { data, isPending, isError, error, refetch } = useAuctioneerLots()
   const nowMs = useServerNow(data?.clockOffsetMs ?? 0)
 
@@ -43,6 +50,7 @@ export function AuctioneerLots() {
             lots={data.items.filter((lot) => lot.status === status)}
             nowMs={nowMs}
             emptyTitle={empty}
+            highlight={highlight}
             renderAction={(lot) =>
               CANCELABLE.includes(lot.status) ? (
                 <CancelLotButton lot={lot} />

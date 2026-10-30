@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 
+import { MOCK_API_URL } from './support/constants'
 import { makeLot, MockApi } from './support/mock-api'
 
 const DAY = 24 * 60 * 60 * 1000
@@ -36,7 +37,7 @@ test.describe('Painel do leiloeiro (RF-20 a RF-22, RF-25)', () => {
     await dialog.getByLabel('Incremento mínimo (R$)').fill('10')
     await dialog.getByRole('button', { name: 'Criar lote' }).click()
 
-    await expect(page.getByText('Lote criado.')).toBeVisible()
+    await expect(page.getByText('Lote “Water Lilies” criado')).toBeVisible()
     await expect(dialog).toBeHidden()
 
     const [created] = api.requestsTo('POST', '/lots')
@@ -57,6 +58,101 @@ test.describe('Painel do leiloeiro (RF-20 a RF-22, RF-25)', () => {
     await expect(
       page.getByTestId('section-mine-scheduled').getByTestId('lot-card'),
     ).toContainText('Water Lilies')
+  })
+
+  test('ao criar: botão "Criando lote…", aviso com início e "Ver lote", card novo na vista e realçado', async ({
+    page,
+  }) => {
+    const api = new MockApi(page).loginAs('AUCTIONEER')
+    api.catalog = [MONET]
+    // Vários lotes ao vivo empurram "Agendados" para bem abaixo da busca.
+    for (let i = 1; i <= 9; i++) {
+      api.lots.push(makeLot(`vivo-${i}`, 'LIVE', api.serverTime))
+      api.myLotIds.add(`vivo-${i}`)
+    }
+    await api.install()
+    // Segura o POST /lots até o teste liberar, para ver o estado de envio.
+    let release!: () => void
+    const held = new Promise<void>((resolve) => (release = resolve))
+    await page.route(`${MOCK_API_URL}/lots`, async (route) => {
+      if (route.request().method() === 'POST') await held
+      await route.fallback()
+    })
+    await page.goto('/auctioneer')
+
+    await page.getByLabel('Buscar itens no acervo').fill('water')
+    await page
+      .getByTestId('catalog-item')
+      .getByRole('button', { name: 'Criar lote' })
+      .click()
+    const dialog = page.getByRole('dialog')
+    await dialog.getByLabel('Lance inicial (R$)').fill('150,00')
+    await dialog.getByLabel('Incremento mínimo (R$)').fill('10')
+    await dialog.getByRole('button', { name: 'Criar lote' }).click()
+
+    const sending = dialog.getByRole('button', { name: 'Criando lote…' })
+    await expect(sending).toBeVisible()
+    await expect(sending).toBeDisabled()
+    release()
+
+    const toastEl = page.locator('[data-sonner-toast]')
+    await expect(toastEl).toContainText('Lote “Water Lilies” criado')
+    const [created] = api.requestsTo('POST', '/lots')
+    const startsAt = new Intl.DateTimeFormat('pt-BR', {
+      dateStyle: 'short',
+      timeStyle: 'short',
+      timeZone: 'America/Sao_Paulo',
+    }).format(new Date(created!.postDataJSON().startsAt))
+    await expect(toastEl).toContainText(`Começa em ${startsAt}.`)
+    await expect(
+      toastEl.getByRole('button', { name: 'Ver lote' }),
+    ).toBeVisible()
+    await expect(dialog).toBeHidden()
+
+    // O card novo vem para a vista, realçado e com o foco.
+    const card = page
+      .getByTestId('section-mine-scheduled')
+      .getByTestId('lot-card')
+      .filter({ hasText: 'Water Lilies' })
+    await expect(card).toBeInViewport()
+    await expect(card).toHaveAttribute('data-highlighted', 'true')
+    await expect(card.getByRole('link', { name: 'Water Lilies' })).toBeFocused()
+
+    // De volta ao topo, "Ver lote" leva ao card de novo.
+    await page.evaluate(() => window.scrollTo(0, 0))
+    await expect(card).not.toBeInViewport()
+    await toastEl.getByRole('button', { name: 'Ver lote' }).click()
+    await expect(card).toBeInViewport()
+    await expect(card).toHaveAttribute('data-highlighted', 'true')
+
+    // O realce some sozinho depois de alguns segundos.
+    await expect(card).not.toHaveAttribute('data-highlighted', /.*/, {
+      timeout: 5_000,
+    })
+  })
+
+  test('título da seção rolada não fica atrás do cabeçalho fixo', async ({
+    page,
+  }) => {
+    const api = new MockApi(page).loginAs('AUCTIONEER')
+    for (let i = 1; i <= 9; i++) {
+      api.lots.push(makeLot(`vivo-${i}`, 'LIVE', api.serverTime))
+      api.myLotIds.add(`vivo-${i}`)
+    }
+    api.lots.push(makeLot('agendado', 'SCHEDULED', api.serverTime))
+    api.myLotIds.add('agendado')
+    await api.install()
+    await page.goto('/auctioneer')
+
+    const heading = page.getByRole('heading', { name: /Agendados/ })
+    await expect(heading).toBeVisible()
+    await page
+      .getByTestId('section-mine-scheduled')
+      .evaluate((section) => section.scrollIntoView({ block: 'start' }))
+    const header = await page.locator('header').first().boundingBox()
+    const title = await heading.boundingBox()
+    expect(title!.y).toBeGreaterThanOrEqual(header!.y + header!.height)
+    await expect(heading).toBeInViewport()
   })
 
   test('valida o formulário como o servidor', async ({ page }) => {

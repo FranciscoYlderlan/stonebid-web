@@ -15,6 +15,8 @@ type LotSectionProps = {
   icon?: ReactNode
   /** Ação por lote no rodapé do card (opcional). */
   renderAction?: (lot: Lot) => ReactNode
+  /** Lote a realçar e rolar para a vista (ex.: o recém-criado no painel). */
+  highlight?: { lotId: string; nonce: number } | null
 }
 
 /** Uma seção de lotes (Ao vivo, Agendados...), com estado vazio próprio. */
@@ -27,13 +29,19 @@ export function LotSection({
   emptyDescription,
   icon,
   renderAction,
+  highlight,
 }: LotSectionProps) {
   const headingId = `${id}-heading`
   return (
-    <section aria-labelledby={headingId} data-testid={`section-${id}`}>
+    <section
+      id={id}
+      aria-labelledby={headingId}
+      data-testid={`section-${id}`}
+      className="scroll-mt-[calc(var(--header-height)+1rem)]"
+    >
       <h2
         id={headingId}
-        className="mb-4 flex items-center gap-2 font-heading text-xl font-semibold"
+        className="mb-4 flex scroll-mt-[calc(var(--header-height)+1rem)] items-center gap-2 font-heading text-xl font-semibold"
       >
         {icon}
         {title}
@@ -55,6 +63,9 @@ export function LotSection({
               lot={lot}
               nowMs={nowMs}
               action={renderAction?.(lot)}
+              highlightNonce={
+                highlight?.lotId === lot.id ? highlight.nonce : undefined
+              }
             />
           ))}
         </div>
