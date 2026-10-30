@@ -55,13 +55,26 @@ export const loginRequest = (input: LoginInput) =>
 export const registerRequest = (input: RegisterInput) =>
   authenticate('/auth/register', input)
 
+/**
+ * Troca de sessão: todo o cache fora da sessão foi lido com o token anterior (o `viewer` do
+ * lote, Meus arremates, carteira, painel do leiloeiro). Zera e recarrega com o token novo,
+ * para nada da sessão anterior aparecer, nem pelo stream da sala, que mantém o `viewer` do cache.
+ */
+function resetSessionScopedQueries(queryClient: QueryClient) {
+  void queryClient.resetQueries({
+    predicate: (query) => query.queryKey[0] !== authKeys.all[0],
+  })
+}
+
 export function startSession(queryClient: QueryClient, user: User) {
   queryClient.setQueryData(authKeys.session(), user)
+  resetSessionScopedQueries(queryClient)
 }
 
 export function endSession(queryClient: QueryClient) {
   clearSessionToken()
   queryClient.setQueryData(authKeys.session(), null)
+  resetSessionScopedQueries(queryClient)
 }
 
 export function createAuthContext(queryClient: QueryClient): AuthContext {
