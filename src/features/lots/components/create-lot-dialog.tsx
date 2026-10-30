@@ -6,6 +6,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { apiUrl } from '@/lib/api-client'
 
 import type { CatalogItem } from '../types/lot-types'
 import { CreateLotForm } from './create-lot-form'
@@ -36,7 +37,7 @@ export function CreateLotDialog({
             </DialogHeader>
             <div className="flex items-center gap-3">
               <CoverImage
-                src={item.imageUrl}
+                src={item.imageUrl ? apiUrl(item.imageUrl) : null}
                 alt={item.title}
                 className="w-20 shrink-0 rounded-md"
               />

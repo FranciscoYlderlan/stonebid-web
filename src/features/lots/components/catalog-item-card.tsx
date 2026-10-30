@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { apiUrl } from '@/lib/api-client'
 
 import type { CatalogItem } from '../types/lot-types'
 import { ItemAttributes } from './item-attributes'
@@ -22,7 +23,10 @@ type CatalogItemCardProps = {
 export function CatalogItemCard({ item, onSelect }: CatalogItemCardProps) {
   return (
     <Card className="pt-0" data-testid="catalog-item">
-      <CoverImage src={item.imageUrl} alt={item.title} />
+      <CoverImage
+        src={item.imageUrl ? apiUrl(item.imageUrl) : null}
+        alt={item.title}
+      />
       <CardHeader>
         <CardTitle className="line-clamp-2">{item.title}</CardTitle>
       </CardHeader>
