@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 
 import { SubmitButton } from '@/components/common/submit-button'
 import { TextField } from '@/components/common/text-field'
+import { useServerNow } from '@/hooks/useServerNow'
 import { useZodForm } from '@/hooks/useZodForm'
 import { isApiError } from '@/lib/api-client'
 import { centsToReaisInput, formatCents } from '@/lib/money'
@@ -21,10 +22,15 @@ import {
  * para um valor até o lance dar certo, então a nova tentativa depois de uma falha reusa a
  * chave e não grava dois lances; chave nova só depois do sucesso ou se o valor mudar. O
  * botão trava enquanto a requisição está no ar. Recusa da API aparece com a mensagem dela.
+ * Fora do ao vivo (ou com a contagem zerada, antes de o servidor encerrar) o formulário
+ * fica desabilitado.
  */
 export function BidPanel({ id }: { id: string }) {
   const { data } = useLot(id)
+  const nowMs = useServerNow(data?.clockOffsetMs ?? 0)
   const minNextBidCents = data?.lot.minNextBidCents
+  const open =
+    data?.lot.status === 'LIVE' && nowMs < Date.parse(data.lot.endsAt)
   const form = useZodForm(bidFormSchema, {
     amount:
       minNextBidCents === undefined ? '' : centsToReaisInput(minNextBidCents),
@@ -37,7 +43,7 @@ export function BidPanel({ id }: { id: string }) {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (inFlight.current) return
+    if (inFlight.current || !open) return
     const values = form.validate()
     if (!values) return
 
@@ -86,6 +92,7 @@ export function BidPanel({ id }: { id: string }) {
     >
       <TextField
         id="bid-amount"
+        disabled={!open}
         label="Seu lance (R$)"
         inputMode="decimal"
         className="h-10"
@@ -110,9 +117,18 @@ export function BidPanel({ id }: { id: string }) {
           </span>
         </p>
       )}
-      <SubmitButton pending={placeBid.isPending} className="h-10 w-full">
+      <SubmitButton
+        pending={placeBid.isPending}
+        disabled={!open}
+        className="h-10 w-full"
+      >
         Dar lance
       </SubmitButton>
+      {open ? null : (
+        <p className="text-sm text-muted-foreground" data-testid="bid-closed">
+          Os lances estão fechados neste momento.
+        </p>
+      )}
     </form>
   )
 }

@@ -29,7 +29,17 @@ export type MockLot = {
   endsAt: string
   status: LotStatus
   canceledAt: string | null
+  /** Contrato do I3: `null` até liquidar. */
+  result: 'SOLD' | 'NO_WINNER' | null
+  settledAt: string | null
+  receiptPublicId: string | null
+  cancelReason: string | null
+  /** Sempre `null` no lote guardado; o `GET /lots/:id` preenche para o licitante logado. */
+  viewer: { pseudonym: string } | null
 }
+
+/** Eventos do `GET /lots/:id/events` (SSE), como a stonebid-api. */
+export type LotStreamEvent = 'snapshot' | 'bid' | 'canceled' | 'settled'
 
 export type MockMovement = {
   id: string
@@ -124,6 +134,11 @@ export function makeLot(
     endsAt: new Date(endsAt).toISOString(),
     status,
     canceledAt: status === 'CANCELED' ? new Date(now).toISOString() : null,
+    result: null,
+    settledAt: null,
+    receiptPublicId: null,
+    cancelReason: null,
+    viewer: null,
     ...overrides,
   }
 }
@@ -158,8 +173,8 @@ function brl(cents: number) {
     .replace(/\s/g, ' ')
 }
 
-/** Pseudônimo do licitante logado nos lances da API simulada. */
-export const MY_PSEUDONYM = 'Licitante 7F3A'
+/** Pseudônimo do licitante logado (HMAC em 6 dígitos hex maiúsculos, como a API). */
+export const MY_PSEUDONYM = 'Licitante 7F3A9C'
 
 /** Mensagens das recusas de lance (RF-70), no formato da stonebid-api. */
 export const BID_MESSAGES = {
@@ -178,6 +193,124 @@ const UNAUTHORIZED = error(
   'UNAUTHORIZED',
   'É preciso entrar para acessar este recurso.',
 )
+
+/**
+ * `EventSource` simulado no navegador: o Playwright não segura uma resposta aberta, então o
+ * stream é este objeto. Ao conectar, ele lê `GET /lots/:id/events` da API simulada (corpo
+ * `text/event-stream` com o `snapshot`) e fica aberto; os eventos seguintes chegam por
+ * `window.__stonebidSse.emit`. Como o navegador: queda → reconecta sozinho em
+ * `RETRY_MS`; resposta que não é 200 `text/event-stream` → fecha de vez (`CLOSED`).
+ */
+function installFakeEventSource() {
+  const RETRY_MS = 300
+  type Listener = (source: FakeEventSource) => void
+  const sources = new Set<FakeEventSource>()
+
+  class FakeEventSource extends EventTarget {
+    static readonly CONNECTING = 0
+    static readonly OPEN = 1
+    static readonly CLOSED = 2
+    readonly CONNECTING = 0
+    readonly OPEN = 1
+    readonly CLOSED = 2
+    readonly url: string
+    readonly withCredentials = false
+    readyState = 0
+    onopen: ((event: Event) => void) | null = null
+    onmessage: ((event: MessageEvent) => void) | null = null
+    onerror: ((event: Event) => void) | null = null
+
+    constructor(url: string | URL) {
+      super()
+      this.url = String(url)
+      sources.add(this)
+      void this.connect()
+    }
+
+    private fire(event: Event) {
+      this.dispatchEvent(event)
+      const handler = (this as unknown as Record<string, unknown>)[
+        `on${event.type}`
+      ]
+      if (typeof handler === 'function') handler.call(this, event)
+    }
+
+    async connect() {
+      if (this.readyState === 2) return
+      this.readyState = 0
+      let response: Response
+      try {
+        response = await fetch(this.url, {
+          headers: { Accept: 'text/event-stream' },
+          cache: 'no-store',
+        })
+      } catch {
+        return this.fail()
+      }
+      if (this.readyState === 2) return
+      const type = response.headers.get('content-type') ?? ''
+      if (!response.ok || !type.startsWith('text/event-stream'))
+        return this.fail()
+      this.readyState = 1
+      this.fire(new Event('open'))
+      this.feed(await response.text())
+    }
+
+    /** Corpo SSE → eventos (`event:` + `data:`; comentários `:` ignorados). */
+    feed(body: string) {
+      for (const block of body.split('\n\n')) {
+        let type = 'message'
+        const data: string[] = []
+        for (const line of block.split('\n')) {
+          if (line.startsWith('event:')) type = line.slice(6).trim()
+          else if (line.startsWith('data:'))
+            data.push(line.slice(5).trimStart())
+        }
+        if (data.length > 0)
+          this.fire(new MessageEvent(type, { data: data.join('\n') }))
+      }
+    }
+
+    private fail() {
+      this.readyState = 2
+      sources.delete(this)
+      this.fire(new Event('error'))
+    }
+
+    /** Queda da conexão: o navegador avisa e tenta de novo. */
+    drop() {
+      if (this.readyState !== 1) return
+      this.readyState = 0
+      this.fire(new Event('error'))
+      setTimeout(() => void this.connect(), RETRY_MS)
+    }
+
+    close() {
+      this.readyState = 2
+      sources.delete(this)
+    }
+  }
+
+  const each = (path: string, fn: Listener) => {
+    for (const source of sources)
+      if (source.readyState === 1 && new URL(source.url).pathname === path)
+        fn(source)
+  }
+
+  Object.assign(window, {
+    EventSource: FakeEventSource,
+    __stonebidSse: {
+      emit: (path: string, type: string, data: string) =>
+        each(path, (source) => source.feed(`event: ${type}\ndata: ${data}`)),
+      drop: () => [...sources].forEach((source) => source.drop()),
+      open: (path: string) =>
+        [...sources].filter(
+          (source) =>
+            source.readyState === 1 && new URL(source.url).pathname === path,
+        ).length,
+    },
+  })
+}
 
 /**
  * API simulada em memória, no formato real da stonebid-api (rotas, corpos, códigos de erro
@@ -221,6 +354,8 @@ export class MockApi {
    */
   dropDepositResponses = 0
   readonly requests: Request[] = []
+  /** Falso: `GET /lots/:id/events` responde 503 (stream fora; a sala recarrega a cada 3 s). */
+  streamAvailable = true
   private readonly depositsByKey = new Map<string, MockMovement>()
   private readonly overrides = new Map<string, MockReply>()
 
@@ -286,6 +421,75 @@ export class MockApi {
     return this
   }
 
+  /** Liquida o lote (AD-08): com lance, `SOLD` e comprovante; sem lance, `NO_WINNER`. */
+  settle(lotId: string, receiptPublicId = `rc-${lotId}`) {
+    const lot = this.lotById(lotId)
+    lot.status = 'ENDED'
+    lot.settledAt = this.serverTime.toISOString()
+    lot.result = lot.currentBidCents === null ? 'NO_WINNER' : 'SOLD'
+    lot.receiptPublicId = lot.result === 'SOLD' ? receiptPublicId : null
+    return this
+  }
+
+  /** Cancela o lote com o motivo, como o `POST /lots/:id/cancel` do I3. */
+  cancelLot(lotId: string, reason: string) {
+    const lot = this.lotById(lotId)
+    lot.status = 'CANCELED'
+    lot.canceledAt = this.serverTime.toISOString()
+    lot.cancelReason = reason
+    return this
+  }
+
+  private lotById(lotId: string) {
+    const lot = this.lots.find((item) => item.id === lotId)
+    if (!lot) throw new Error(`Lote ${lotId} não existe na API simulada`)
+    return lot
+  }
+
+  /** `data` de um evento do stream: `{ serverTime, lot }` com `viewer` nulo, como a API. */
+  private streamData(lotId: string) {
+    return JSON.stringify({
+      serverTime: this.serverTime.toISOString(),
+      lot: { ...this.lotById(lotId), viewer: null },
+    })
+  }
+
+  /** Empurra um evento do estado atual do lote para as salas abertas nele. */
+  async emit(lotId: string, type: LotStreamEvent) {
+    const data = this.streamData(lotId)
+    await this.page.evaluate(
+      ([path, eventType, body]) =>
+        (
+          window as unknown as {
+            __stonebidSse: { emit: (p: string, t: string, d: string) => void }
+          }
+        ).__stonebidSse.emit(path, eventType, body),
+      [`/lots/${lotId}/events`, type, data] as const,
+    )
+  }
+
+  /** Derruba as conexões do stream; com `streamAvailable` falso, a reconexão falha. */
+  async dropStreams() {
+    await this.page.evaluate(() =>
+      (
+        window as unknown as { __stonebidSse: { drop: () => void } }
+      ).__stonebidSse.drop(),
+    )
+  }
+
+  /** Quantos streams abertos a página tem no lote. */
+  async openStreams(lotId: string) {
+    return this.page.evaluate(
+      (path) =>
+        (
+          window as unknown as {
+            __stonebidSse: { open: (p: string) => number }
+          }
+        ).__stonebidSse.open(path),
+      `/lots/${lotId}/events`,
+    )
+  }
+
   requestsTo(method: string, path: string) {
     return this.requests.filter(
       (request) =>
@@ -297,6 +501,7 @@ export class MockApi {
     // Nada sai para a internet: imagens externas e afins falham e caem no marcador.
     await this.page.route(/^https?:\/\/(?!localhost)/, (route) => route.abort())
     await this.page.route(`${MOCK_API_URL}/**`, (route) => this.handle(route))
+    await this.page.addInitScript(installFakeEventSource)
     if (this.user) {
       await this.page.addInitScript(() =>
         window.localStorage.setItem('stonebid.token', 'token-de-teste'),
@@ -336,6 +541,18 @@ export class MockApi {
       this.dropBidResponses -= 1
       return route.abort('connectionreset')
     }
+    if (reply.eventStream !== undefined)
+      return route.fulfill({
+        status: 200,
+        headers: {
+          ...cors,
+          'Cache-Control': 'no-cache, no-transform',
+          'X-Accel-Buffering': 'no',
+          Connection: 'keep-alive',
+        },
+        contentType: 'text/event-stream',
+        body: reply.eventStream,
+      })
     return route.fulfill({
       status: reply.status,
       headers: cors,
@@ -348,7 +565,13 @@ export class MockApi {
     method: string,
     url: URL,
     request: Request,
-  ): Promise<{ status: number; json: unknown; delayMs?: number }> {
+  ): Promise<{
+    status: number
+    json: unknown
+    delayMs?: number
+    /** Corpo `text/event-stream` (só o `GET /lots/:id/events`). */
+    eventStream?: string
+  }> {
     const path = url.pathname
     const serverTime = this.serverTime.toISOString()
     const ok = (json: unknown, status = 200) => ({ status, json })
@@ -405,9 +628,27 @@ export class MockApi {
     const lotMatch = path.match(/^\/lots\/([^/]+)$/)
     if (method === 'GET' && lotMatch) {
       const lot = this.lots.find((item) => item.id === lotMatch[1])
+      // Autenticação opcional: só o licitante com token vê o próprio pseudônimo (RF-30).
+      const viewer =
+        request.headers()['authorization'] && this.user?.role === 'BIDDER'
+          ? { pseudonym: MY_PSEUDONYM }
+          : null
       return lot
-        ? ok({ serverTime, lot })
+        ? ok({ serverTime, lot: { ...lot, viewer } })
         : error(404, 'LOT_NOT_FOUND', 'Lote não encontrado.')
+    }
+
+    const eventsMatch = path.match(/^\/lots\/([^/]+)\/events$/)
+    if (method === 'GET' && eventsMatch) {
+      if (!this.lots.some((item) => item.id === eventsMatch[1]))
+        return error(404, 'LOT_NOT_FOUND', 'Lote não encontrado.')
+      if (!this.streamAvailable)
+        return error(503, 'UNKNOWN_ERROR', 'Serviço indisponível.')
+      return {
+        status: 200,
+        json: null,
+        eventStream: `event: snapshot\ndata: ${this.streamData(eventsMatch[1]!)}\n\n`,
+      }
     }
 
     const bidsMatch = path.match(/^\/lots\/([^/]+)\/bids$/)
