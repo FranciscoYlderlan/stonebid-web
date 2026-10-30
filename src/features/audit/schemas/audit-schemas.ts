@@ -12,6 +12,7 @@ export const auditReasonSchema = z.enum([
   'HEAD_MISMATCH',
   'RECEIPT_MISMATCH',
   'SETTLEMENT_MISMATCH',
+  'CANCEL_MISMATCH',
 ])
 
 export const AUDIT_REASON_LABELS: Record<
@@ -25,6 +26,7 @@ export const AUDIT_REASON_LABELS: Record<
   HEAD_MISMATCH: 'Último lance apagado ou cabeça da cadeia alterada',
   RECEIPT_MISMATCH: 'Comprovante não confere com o histórico',
   SETTLEMENT_MISMATCH: 'Liquidação não confere com o extrato',
+  CANCEL_MISMATCH: 'Estorno do cancelamento não confere com o extrato',
 }
 
 /** Lance da cadeia, com o hash anterior e o próprio (SHA-256 em hex). */
