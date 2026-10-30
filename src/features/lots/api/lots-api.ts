@@ -1,12 +1,13 @@
 import { keepPreviousData, queryOptions } from '@tanstack/react-query'
 import type { z } from 'zod'
 
-import { apiClient, isApiError } from '@/lib/api-client'
+import { apiClient, apiUrl, isApiError } from '@/lib/api-client'
 import { clockOffsetFrom } from '@/lib/time'
 
 import {
   auctioneerLotsResponseSchema,
   itemSearchResponseSchema,
+  lotEventSchema,
   lotResponseSchema,
   lotSchema,
   showcaseResponseSchema,
@@ -62,9 +63,13 @@ export const showcaseQueryOptions = () =>
     refetchInterval: SHOWCASE_REFETCH_MS,
   })
 
-/** A sala do lote se atualiza sozinha (lance atual, líder, histórico) até chegar o tempo real. */
-const LOT_ROOM_REFETCH_MS = 15_000
+/**
+ * Plano B do tempo real (AD-04): enquanto o stream SSE da sala estiver fora, o lote e o
+ * histórico recarregam a cada 3 s. Com o stream no ar, nada recarrega sozinho.
+ */
+export const LOT_ROOM_FALLBACK_REFETCH_MS = 3_000
 
+/** Lote e histórico chegam pelo stream (`useLotStream`); quem liga a recarga é a sala. */
 export const lotQueryOptions = (id: string) =>
   queryOptions({
     queryKey: lotsKeys.detail(id),
@@ -74,8 +79,28 @@ export const lotQueryOptions = (id: string) =>
         lotResponseSchema,
         signal,
       ),
-    refetchInterval: LOT_ROOM_REFETCH_MS,
   })
+
+/** URL do stream público da sala (`GET /lots/:id/events`). */
+export const lotEventsUrl = (id: string) =>
+  apiUrl(`/lots/${encodeURIComponent(id)}/events`)
+
+/** `data` de um evento do stream → lote com o deslocamento do relógio; `null` fora do contrato. */
+export function parseLotEvent(
+  data: string,
+  receivedAt = Date.now(),
+): LotDetail | null {
+  let json: unknown
+  try {
+    json = JSON.parse(data)
+  } catch {
+    return null
+  }
+  const parsed = lotEventSchema.safeParse(json)
+  if (!parsed.success) return null
+  const { serverTime, lot } = parsed.data
+  return { lot, clockOffsetMs: clockOffsetFrom(serverTime, receivedAt) }
+}
 
 /** Histórico público de lances do lote (pseudônimo, valor e hora), do mais novo ao mais antigo. */
 export const bidHistoryQueryOptions = (id: string) =>
@@ -87,7 +112,6 @@ export const bidHistoryQueryOptions = (id: string) =>
           signal,
         }),
       ).items,
-    refetchInterval: LOT_ROOM_REFETCH_MS,
   })
 
 export const auctioneerLotsQueryOptions = () =>

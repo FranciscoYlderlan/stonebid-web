@@ -1,3 +1,4 @@
+import type { UseQueryResult } from '@tanstack/react-query'
 import { Gavel } from 'lucide-react'
 
 import { EmptyState } from '@/components/common/empty-state'
@@ -7,18 +8,19 @@ import { formatCents } from '@/lib/money'
 import { formatDateTimeWithSeconds } from '@/lib/time'
 import { cn } from '@/lib/utils'
 
-import { useBidHistory } from '../hooks/useBidHistory'
+import type { BidHistoryItem } from '../types/lot-types'
 
-/** Histórico público de lances: pseudônimo, valor e hora, do mais novo ao mais antigo. */
+/**
+ * Histórico público de lances: pseudônimo, valor e hora, do mais novo ao mais antigo. A
+ * consulta vem da sala (`useBidHistory`), que também a usa no indicador do RF-30.
+ */
 export function BidHistory({
-  id,
+  history,
   className,
 }: {
-  id: string
+  history: UseQueryResult<BidHistoryItem[]>
   className?: string
 }) {
-  const history = useBidHistory(id)
-
   return (
     <section
       aria-labelledby="bid-history-heading"

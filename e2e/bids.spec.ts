@@ -143,6 +143,8 @@ test.describe('Tela de lance (RF-33)', () => {
     const api = bidderWithLiveLot(page)
     await api.install()
     await page.goto(`/bidding/${LOT}`)
+    // A sessão precisa ter sido lida antes de o servidor "esquecer" o usuário.
+    await expect(bidButton(page)).toBeEnabled()
 
     api.replyWith('POST', BIDS_PATH, {
       status: 401,

@@ -9,27 +9,50 @@ import { apiUrl, isApiError } from '@/lib/api-client'
 import { formatCents } from '@/lib/money'
 import { formatDateTime } from '@/lib/time'
 
+import { LOT_ROOM_FALLBACK_REFETCH_MS } from '../api/lots-api'
+import { useBidHistory } from '../hooks/useBidHistory'
 import { useLot } from '../hooks/useLot'
+import { useLotPhaseRefresh } from '../hooks/useLotPhaseRefresh'
+import { useLotStream } from '../hooks/useLotStream'
+import { isFinalLot } from '../schemas/lot-schemas'
 import { BidHistory } from './bid-history'
 import { ItemAttributes } from './item-attributes'
-import { LotCountdown } from './lot-countdown'
+import { LotOutcome } from './lot-outcome'
 import { LotPrice } from './lot-price'
+import { LotRoomCountdown } from './lot-room-countdown'
 import { LotStatusBadge } from './lot-status-badge'
+import { ViewerPosition } from './viewer-position'
 
 type LotRoomProps = {
   id: string
   /**
    * O que muda conforme quem vê: na `/lots/$id` o botão "Dar lance", na `/bidding/$id` o
    * painel de lance. Quem decide é a rota; a sala não sabe quem está logado. Aparece só com
-   * o lote ao vivo.
+   * o lote ao vivo; `null` não mostra nada (leiloeiro).
    */
   bidSlot: ReactNode
 }
 
-/** Sala do lote: obra, lance atual e líder, contagem, histórico público e o espaço do lance. */
+/**
+ * Sala do lote ao vivo: obra, lance atual e líder, contagem, histórico público e o espaço do
+ * lance. Atualiza pelo stream SSE (`useLotStream`); com o stream fora, recarrega a cada 3 s.
+ */
 export function LotRoom({ id, bidSlot }: LotRoomProps) {
-  const { data, isPending, isError, error, refetch } = useLot(id)
+  const streaming = useLotStream(id)
+  const fallbackMs = streaming ? false : LOT_ROOM_FALLBACK_REFETCH_MS
+  const { data, dataUpdatedAt, isPending, isError, error, refetch } = useLot(
+    id,
+    // Lote final ou com erro (ex.: 404) não recarrega sozinho.
+    (query) =>
+      query.state.status === 'error' ||
+      (query.state.data && isFinalLot(query.state.data.lot))
+        ? false
+        : fallbackMs,
+  )
+  const final = data ? isFinalLot(data.lot) : false
+  const history = useBidHistory(id, final ? false : fallbackMs)
   const nowMs = useServerNow(data?.clockOffsetMs ?? 0)
+  useLotPhaseRefresh(id, data, dataUpdatedAt)
 
   if (isPending) {
     return (
@@ -80,7 +103,7 @@ export function LotRoom({ id, bidSlot }: LotRoomProps) {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <LotPrice lot={lot} />
-              {lot.leaderPseudonym ? (
+              {lot.leaderPseudonym && lot.status === 'LIVE' ? (
                 <p className="text-sm text-muted-foreground">
                   Liderando:{' '}
                   <span
@@ -91,9 +114,10 @@ export function LotRoom({ id, bidSlot }: LotRoomProps) {
                   </span>
                 </p>
               ) : null}
-              <LotCountdown lot={lot} nowMs={nowMs} />
+              <LotRoomCountdown lot={lot} nowMs={nowMs} />
             </div>
-            {lot.status === 'LIVE' ? bidSlot : null}
+            <ViewerPosition lot={lot} history={history.data} />
+            {lot.status === 'LIVE' ? bidSlot : <LotOutcome lot={lot} />}
           </CardContent>
         </Card>
         <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
@@ -109,7 +133,7 @@ export function LotRoom({ id, bidSlot }: LotRoomProps) {
           <ItemAttributes attributes={lot.attributes} />
         </section>
       </div>
-      <BidHistory id={id} className="md:col-span-2" />
+      <BidHistory history={history} className="md:col-span-2" />
     </article>
   )
 }
