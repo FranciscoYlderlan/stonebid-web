@@ -243,6 +243,35 @@ test.describe('Auditoria pública do lote (RF-60)', () => {
     ).toHaveCount(0)
   })
 
+  test('licitante na sala de lance vê "Ver auditoria" e chega à auditoria', async ({
+    page,
+  }) => {
+    const api = new MockApi(page).loginAs('BIDDER')
+    withBids(api, 'ao-vivo', 'LIVE')
+    await api.install()
+    await page.goto('/bidding/ao-vivo')
+
+    await expect(page).toHaveURL(/\/bidding\/ao-vivo$/)
+    await expect(page.getByRole('button', { name: 'Dar lance' })).toBeVisible()
+    await page.getByRole('link', { name: 'Ver auditoria' }).click()
+    await expect(page).toHaveURL(/\/lots\/ao-vivo\/audit$/)
+    await expect(page.getByTestId('audit-verdict')).toContainText('ÍNTEGRO')
+  })
+
+  test('sala de lance 404 não mostra Ver auditoria', async ({ page }) => {
+    const api = new MockApi(page).loginAs('BIDDER')
+    await api.install()
+    await page.goto('/bidding/nao-existe')
+
+    await expect(
+      page.getByText('Lote não encontrado', { exact: true }),
+    ).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Ver auditoria' })).toHaveCount(
+      0,
+    )
+    expect(api.requestsTo('GET', '/lots/nao-existe/audit')).toHaveLength(0)
+  })
+
   test('leiloeiro também vê "Ver auditoria" na sala carregada', async ({
     page,
   }) => {

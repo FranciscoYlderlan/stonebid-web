@@ -1,4 +1,7 @@
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { createFileRoute, Link, redirect } from '@tanstack/react-router'
+import { ShieldCheck } from 'lucide-react'
+
+import { Button } from '@/components/ui/button'
 
 import {
   BidPanel,
@@ -25,5 +28,20 @@ export const Route = createFileRoute('/_app/bidding/$id')({
 
 function BiddingPage() {
   const { id } = Route.useParams()
-  return <LotRoom id={id} bidSlot={<BidPanel id={id} />} />
+  return (
+    <LotRoom
+      id={id}
+      bidSlot={<BidPanel id={id} />}
+      // Auditoria pública da cadeia de lances (RF-60), como na sala só para ver; o LotRoom
+      // só mostra o slot com o lote carregado.
+      auditSlot={
+        <Button asChild variant="outline">
+          <Link to="/lots/$id/audit" params={{ id }}>
+            <ShieldCheck data-icon="inline-start" aria-hidden />
+            Ver auditoria
+          </Link>
+        </Button>
+      }
+    />
+  )
 }
