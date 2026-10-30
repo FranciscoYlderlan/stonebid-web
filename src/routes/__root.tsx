@@ -11,7 +11,12 @@ import { FileQuestion, TriangleAlert } from 'lucide-react'
 import { EmptyState } from '@/components/common/empty-state'
 import { Header } from '@/components/layout/header'
 import { Button } from '@/components/ui/button'
-import { SessionActions, type AuthContext, type User } from '@/features/auth'
+import {
+  SessionActions,
+  SessionCheckAlert,
+  type AuthContext,
+  type User,
+} from '@/features/auth'
 import { getLoadErrorMessage } from '@/lib/load-error'
 
 export type RouterContext = {
@@ -20,7 +25,8 @@ export type RouterContext = {
 }
 
 export const Route = createRootRouteWithContext<RouterContext>()({
-  // Sessão resolvida uma vez por navegação (em cache). 401 = visitante (user null), não erro.
+  // Sessão resolvida uma vez por navegação (em cache). 401 = visitante (user null), não erro;
+  // outra falha também vira visitante, com o aviso do SessionCheckAlert.
   beforeLoad: async ({ context }): Promise<{ user: User | null }> => ({
     user: await context.auth.getSession(),
   }),
@@ -33,6 +39,7 @@ function RootLayout() {
   return (
     <div className="flex min-h-svh flex-col [--header-height:--spacing(14)]">
       <Header actions={<SessionActions />} />
+      <SessionCheckAlert />
       <Outlet />
     </div>
   )

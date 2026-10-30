@@ -8,7 +8,7 @@ import { useZodForm } from '@/hooks/useZodForm'
 import { showMutationError } from '@/lib/mutation-error'
 
 import { useLogin } from '../hooks/useLogin'
-import { loginSchema } from '../schemas/auth-schemas'
+import { PASSWORD_MAX, loginSchema } from '../schemas/auth-schemas'
 import type { User } from '../types/auth-types'
 import { AuthCard } from './auth-card'
 
@@ -62,6 +62,7 @@ export function LoginForm({ redirect, onSuccess }: LoginFormProps) {
             label="Senha"
             type="password"
             autoComplete="current-password"
+            maxLength={PASSWORD_MAX}
             value={form.values.password}
             error={form.errors.password}
             onChange={(event) => form.setValue('password', event.target.value)}

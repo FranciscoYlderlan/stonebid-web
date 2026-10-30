@@ -37,6 +37,9 @@ export const sessionQueryOptions = () =>
     queryKey: authKeys.session(),
     queryFn: ({ signal }) => fetchSession(signal),
     staleTime: Infinity,
+    // O beforeLoad da raiz já tentou (com as novas tentativas padrão): o componente que
+    // monta depois não refaz a busca, e o aviso de falha fica parado na tela.
+    retryOnMount: false,
   })
 
 async function authenticate(path: string, body: unknown): Promise<User> {
@@ -63,7 +66,8 @@ export function endSession(queryClient: QueryClient) {
 
 export function createAuthContext(queryClient: QueryClient): AuthContext {
   return {
-    // Falha de rede ao ler a sessão não derruba as páginas públicas: vira visitante.
+    // Falha de rede ao ler a sessão não derruba as páginas públicas: vira visitante, com
+    // o aviso do SessionCheckAlert (o erro fica na query) e sem apagar o token salvo.
     getSession: () =>
       queryClient.ensureQueryData(sessionQueryOptions()).catch(() => null),
   }
