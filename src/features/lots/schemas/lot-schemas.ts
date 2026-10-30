@@ -24,7 +24,7 @@ export const itemAttributesSchema = z.object({
   date: z.string().nullish(),
   medium: z.string().nullish(),
   dimensions: z.string().nullish(),
-  origin: z.string().nullish(),
+  placeOfOrigin: z.string().nullish(),
 })
 
 export const lotSchema = z.object({
