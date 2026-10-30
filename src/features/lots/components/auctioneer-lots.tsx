@@ -1,7 +1,7 @@
 import { ErrorState } from '@/components/common/error-state'
+import { useServerNow } from '@/hooks/useServerNow'
 
 import { useAuctioneerLots } from '../hooks/useAuctioneerLots'
-import { useServerNow } from '../hooks/useServerNow'
 import type { LotStatus } from '../types/lot-types'
 import { CancelLotButton } from './cancel-lot-button'
 import { LotSection } from './lot-section'

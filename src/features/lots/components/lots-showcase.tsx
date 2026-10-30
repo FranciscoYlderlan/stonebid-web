@@ -1,8 +1,8 @@
 import { CalendarClock, Flag, Radio } from 'lucide-react'
 
 import { ErrorState } from '@/components/common/error-state'
+import { useServerNow } from '@/hooks/useServerNow'
 
-import { useServerNow } from '../hooks/useServerNow'
 import { useShowcase } from '../hooks/useShowcase'
 import { LotSection } from './lot-section'
 import { LotSectionSkeleton } from './lot-section-skeleton'
