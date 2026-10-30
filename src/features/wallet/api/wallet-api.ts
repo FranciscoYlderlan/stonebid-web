@@ -1,19 +1,15 @@
 import { queryOptions } from '@tanstack/react-query'
 
 import { apiClient } from '@/lib/api-client'
+import { walletKeys, walletSchema } from '@/lib/wallet-cache'
 
 import {
   depositResponseSchema,
   movementsResponseSchema,
-  walletSchema,
 } from '../schemas/wallet-schemas'
 import type { DepositResponse } from '../types/wallet-types'
 
-export const walletKeys = {
-  all: ['wallet'] as const,
-  balance: () => [...walletKeys.all, 'balance'] as const,
-  movements: () => [...walletKeys.all, 'movements'] as const,
-}
+export { walletKeys }
 
 export const walletQueryOptions = () =>
   queryOptions({

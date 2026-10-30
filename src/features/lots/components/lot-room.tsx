@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react'
+
 import { CoverImage } from '@/components/common/cover-image'
 import { ErrorState } from '@/components/common/error-state'
 import { Card, CardContent } from '@/components/ui/card'
@@ -8,13 +10,24 @@ import { formatCents } from '@/lib/money'
 import { formatDateTime } from '@/lib/time'
 
 import { useLot } from '../hooks/useLot'
+import { BidHistory } from './bid-history'
 import { ItemAttributes } from './item-attributes'
 import { LotCountdown } from './lot-countdown'
 import { LotPrice } from './lot-price'
 import { LotStatusBadge } from './lot-status-badge'
 
-/** Dados do lote, só leitura. A sala ao vivo (lances em tempo real) chega em outro incremento. */
-export function LotDetails({ id }: { id: string }) {
+type LotRoomProps = {
+  id: string
+  /**
+   * O que muda conforme quem vê: na `/lots/$id` o botão "Dar lance", na `/bidding/$id` o
+   * painel de lance. Quem decide é a rota; a sala não sabe quem está logado. Aparece só com
+   * o lote ao vivo.
+   */
+  bidSlot: ReactNode
+}
+
+/** Sala do lote: obra, lance atual e líder, contagem, histórico público e o espaço do lance. */
+export function LotRoom({ id, bidSlot }: LotRoomProps) {
   const { data, isPending, isError, error, refetch } = useLot(id)
   const nowMs = useServerNow(data?.clockOffsetMs ?? 0)
 
@@ -50,13 +63,13 @@ export function LotDetails({ id }: { id: string }) {
   ] as const
 
   return (
-    <article className="grid gap-8 md:grid-cols-2">
+    <article className="grid min-w-0 gap-8 md:grid-cols-2">
       <CoverImage
         src={lot.imageUrl ? apiUrl(lot.imageUrl) : null}
         alt={lot.title}
         className="rounded-xl"
       />
-      <div className="space-y-6">
+      <div className="min-w-0 space-y-6">
         <header className="space-y-2">
           <LotStatusBadge status={lot.status} />
           <h1 className="font-heading text-3xl font-semibold tracking-tight">
@@ -64,9 +77,23 @@ export function LotDetails({ id }: { id: string }) {
           </h1>
         </header>
         <Card>
-          <CardContent className="space-y-2">
-            <LotPrice lot={lot} />
-            <LotCountdown lot={lot} nowMs={nowMs} />
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <LotPrice lot={lot} />
+              {lot.leaderPseudonym ? (
+                <p className="text-sm text-muted-foreground">
+                  Liderando:{' '}
+                  <span
+                    className="font-medium text-foreground"
+                    data-testid="lot-leader"
+                  >
+                    {lot.leaderPseudonym}
+                  </span>
+                </p>
+              ) : null}
+              <LotCountdown lot={lot} nowMs={nowMs} />
+            </div>
+            {lot.status === 'LIVE' ? bidSlot : null}
           </CardContent>
         </Card>
         <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
@@ -82,6 +109,7 @@ export function LotDetails({ id }: { id: string }) {
           <ItemAttributes attributes={lot.attributes} />
         </section>
       </div>
+      <BidHistory id={id} className="md:col-span-2" />
     </article>
   )
 }

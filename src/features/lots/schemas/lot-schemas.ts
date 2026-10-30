@@ -34,7 +34,12 @@ export const lotSchema = z.object({
   imageUrl: z.string().nullish(),
   startingBidCents: z.number().int(),
   minIncrementCents: z.number().int(),
+  /** Lance que lidera; `null` sem lance. */
   currentBidCents: z.number().int().nullable(),
+  /** Menor lance aceito agora: o inicial sem lance, ou o atual + incremento. */
+  minNextBidCents: z.number().int(),
+  /** Pseudônimo de quem lidera; `null` sem lance. */
+  leaderPseudonym: z.string().nullable(),
   startsAt: z.string(),
   originalEndsAt: z.string(),
   endsAt: z.string(),
