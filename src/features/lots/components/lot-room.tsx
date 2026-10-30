@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useServerNow } from '@/hooks/useServerNow'
 import { apiUrl, isApiError } from '@/lib/api-client'
 import { formatCents } from '@/lib/money'
-import { formatDateTime } from '@/lib/time'
+import { formatDateTime, formatDateTimeWithSeconds } from '@/lib/time'
 
 import { LOT_ROOM_FALLBACK_REFETCH_MS } from '../api/lots-api'
 import { useBidHistory } from '../hooks/useBidHistory'
@@ -87,7 +87,9 @@ export function LotRoom({ id, bidSlot, auditSlot }: LotRoomProps) {
     ['Lance inicial', formatCents(lot.startingBidCents)],
     ['Incremento mínimo', formatCents(lot.minIncrementCents)],
     ['Início', formatDateTime(lot.startsAt)],
-    ['Fim', formatDateTime(lot.endsAt)],
+    // O fim vem do lote em cache, o mesmo da contagem e do "Prorrogado". Com segundos: a
+    // prorrogação (agora + 2 min, RN-10) pode cair no mesmo minuto do fim anterior.
+    ['Fim', formatDateTimeWithSeconds(lot.endsAt)],
   ] as const
 
   return (
