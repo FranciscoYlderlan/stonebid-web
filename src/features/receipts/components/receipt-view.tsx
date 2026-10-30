@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { FileX, ShieldCheck } from 'lucide-react'
 
+import { CopyButton } from '@/components/common/copy-button'
 import { CoverImage } from '@/components/common/cover-image'
 import { EmptyState } from '@/components/common/empty-state'
 import { ErrorState } from '@/components/common/error-state'
@@ -13,7 +14,6 @@ import { formatDateTimeWithSeconds } from '@/lib/time'
 
 import { useReceipt } from '../hooks/useReceipt'
 import { RECEIPT_NOT_FOUND } from '../schemas/receipt-schemas'
-import { CopyButton } from './copy-button'
 
 /**
  * Comprovante público do arremate (RF-51, RF-52): item, valor, data e hora, pseudônimo do

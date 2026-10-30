@@ -1,7 +1,5 @@
 import { z } from 'zod'
 
-import { lotSchema } from '@/features/lots'
-
 /** Veredito da cadeia de lances, recalculado pela API a cada consulta (RF-60). */
 export const auditVerdictSchema = z.enum(['INTACT', 'TAMPERED'])
 
@@ -47,7 +45,11 @@ export const auditInconsistencySchema = z.object({
 
 /** Corpo do `GET /lots/:id/audit` (público, `no-store`). */
 export const auditResponseSchema = z.object({
-  lot: lotSchema,
+  /**
+   * O lote vem inteiro (o mesmo do `GET /lots/:id`), mas a auditoria só usa o `id`: o
+   * cabeçalho do lote é da feature lots e entra pela rota (`lotSlot`).
+   */
+  lot: z.looseObject({ id: z.string() }),
   bids: z.array(auditBidSchema),
   verdict: auditVerdictSchema,
   firstInconsistency: auditInconsistencySchema.nullable(),

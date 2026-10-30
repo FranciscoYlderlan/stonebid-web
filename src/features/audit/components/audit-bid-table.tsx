@@ -1,8 +1,8 @@
 import { Gavel } from 'lucide-react'
 import type { ReactNode } from 'react'
 
+import { CopyButton } from '@/components/common/copy-button'
 import { EmptyState } from '@/components/common/empty-state'
-import { CopyButton } from '@/features/receipts'
 import { formatCents } from '@/lib/money'
 import { formatDateTimeWithSeconds } from '@/lib/time'
 import { cn } from '@/lib/utils'
