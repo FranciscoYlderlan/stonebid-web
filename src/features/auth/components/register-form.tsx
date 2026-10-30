@@ -7,7 +7,7 @@ import { useZodForm } from '@/hooks/useZodForm'
 import { showMutationError } from '@/lib/mutation-error'
 
 import { useRegister } from '../hooks/useRegister'
-import { registerSchema } from '../schemas/auth-schemas'
+import { NAME_MAX, PASSWORD_MAX, registerSchema } from '../schemas/auth-schemas'
 import type { User } from '../types/auth-types'
 import { AuthCard } from './auth-card'
 import { RoleChoice } from './role-choice'
@@ -56,6 +56,7 @@ export function RegisterForm({ redirect, onSuccess }: RegisterFormProps) {
             id="name"
             label="Nome"
             autoComplete="name"
+            maxLength={NAME_MAX}
             value={form.values.name}
             error={form.errors.name}
             onChange={(event) => form.setValue('name', event.target.value)}
@@ -76,6 +77,7 @@ export function RegisterForm({ redirect, onSuccess }: RegisterFormProps) {
             type="password"
             autoComplete="new-password"
             placeholder="Mínimo de 8 caracteres"
+            maxLength={PASSWORD_MAX}
             value={form.values.password}
             error={form.errors.password}
             onChange={(event) => form.setValue('password', event.target.value)}
