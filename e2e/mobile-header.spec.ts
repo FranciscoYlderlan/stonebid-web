@@ -54,3 +54,46 @@ test.describe('Cabeçalho no celular (RF-03)', () => {
     }
   }
 })
+
+// 305 px simula 320 px com barra de rolagem clássica (~15 px).
+const VISITOR_WIDTHS = [305, 320] as const
+const MIN_EDGE_GAP = 8
+const MIN_TOUCH_TARGET = 40
+
+test.describe('Cabeçalho do visitante com folga na borda (RF-21)', () => {
+  for (const width of VISITOR_WIDTHS) {
+    test(`visitante a ${width} px: último botão a ≥ ${MIN_EDGE_GAP} px da borda, alvos de ${MIN_TOUCH_TARGET} px`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: 700 })
+      await new MockApi(page).install()
+      await page.goto('/')
+
+      const header = page.locator('header')
+      const login = header.getByRole('link', { name: 'Entrar' })
+      const register = header.getByRole('link', { name: 'Cadastrar' })
+      await expect(login).toBeVisible()
+      await expect(register).toBeVisible()
+
+      for (const link of [login, register]) {
+        const box = await link.boundingBox()
+        expect(box?.width).toBeGreaterThanOrEqual(MIN_TOUCH_TARGET)
+        expect(box?.height).toBeGreaterThanOrEqual(MIN_TOUCH_TARGET)
+      }
+
+      const { scrollWidth, clientWidth, lastRight } = await page.evaluate(
+        () => {
+          const controls = document.querySelectorAll('header a, header button')
+          const last = controls[controls.length - 1]
+          return {
+            scrollWidth: document.documentElement.scrollWidth,
+            clientWidth: document.documentElement.clientWidth,
+            lastRight: last?.getBoundingClientRect().right ?? Infinity,
+          }
+        },
+      )
+      expect(scrollWidth).toBeLessThanOrEqual(clientWidth)
+      expect(clientWidth - lastRight).toBeGreaterThanOrEqual(MIN_EDGE_GAP)
+    })
+  }
+})
