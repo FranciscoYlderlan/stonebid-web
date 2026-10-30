@@ -243,6 +243,33 @@ test.describe('Auditoria pública do lote (RF-60)', () => {
     ).toHaveCount(0)
   })
 
+  test('leiloeiro também vê "Ver auditoria" na sala carregada', async ({
+    page,
+  }) => {
+    const api = new MockApi(page).loginAs('AUCTIONEER')
+    withBids(api, 'ao-vivo', 'LIVE')
+    await api.install()
+    await page.goto('/lots/ao-vivo')
+
+    await page.getByRole('link', { name: 'Ver auditoria' }).click()
+    await expect(page).toHaveURL(/\/lots\/ao-vivo\/audit$/)
+    await expect(page.getByTestId('audit-verdict')).toContainText('ÍNTEGRO')
+  })
+
+  test('sala 404 não mostra Ver auditoria', async ({ page }) => {
+    const api = new MockApi(page)
+    await api.install()
+    await page.goto('/lots/nao-existe')
+
+    await expect(
+      page.getByText('Lote não encontrado', { exact: true }),
+    ).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Ver auditoria' })).toHaveCount(
+      0,
+    )
+    expect(api.requestsTo('GET', '/lots/nao-existe/audit')).toHaveLength(0)
+  })
+
   test('o link do comprovante chega à auditoria do lote', async ({ page }) => {
     const api = new MockApi(page)
     const { lot, receipt } = makeSoldLot('vendido', api.serverTime, {
