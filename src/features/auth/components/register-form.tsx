@@ -1,10 +1,10 @@
 import { Link } from '@tanstack/react-router'
 import type { FormEvent } from 'react'
-import { toast } from 'sonner'
 
 import { TextField } from '@/components/common/text-field'
 import { FieldGroup } from '@/components/ui/field'
 import { useZodForm } from '@/hooks/useZodForm'
+import { showMutationError } from '@/lib/mutation-error'
 
 import { useRegister } from '../hooks/useRegister'
 import { registerSchema } from '../schemas/auth-schemas'
@@ -30,7 +30,7 @@ export function RegisterForm({ redirect, onSuccess }: RegisterFormProps) {
     event.preventDefault()
     const data = form.validate()
     if (!data) return
-    register.mutate(data, { onError: (error) => toast.error(error.message) })
+    register.mutate(data, { onError: showMutationError })
   }
 
   return (

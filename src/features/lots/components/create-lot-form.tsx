@@ -6,6 +6,7 @@ import { SubmitButton } from '@/components/common/submit-button'
 import { TextField } from '@/components/common/text-field'
 import { FieldGroup } from '@/components/ui/field'
 import { useZodForm } from '@/hooks/useZodForm'
+import { showMutationError } from '@/lib/mutation-error'
 import { serverNowMs, toDateTimeLocalValue } from '@/lib/time'
 
 import { useCreateLot } from '../hooks/useCreateLot'
@@ -65,7 +66,7 @@ export function CreateLotForm({
           toast.success('Lote criado.')
           onCreated(lot)
         },
-        onError: (error) => toast.error(error.message),
+        onError: showMutationError,
       },
     )
   }

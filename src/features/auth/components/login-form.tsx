@@ -1,11 +1,11 @@
 import { Link } from '@tanstack/react-router'
 import type { FormEvent } from 'react'
-import { toast } from 'sonner'
 
 import { SubmitButton } from '@/components/common/submit-button'
 import { TextField } from '@/components/common/text-field'
 import { FieldGroup } from '@/components/ui/field'
 import { useZodForm } from '@/hooks/useZodForm'
+import { showMutationError } from '@/lib/mutation-error'
 
 import { useLogin } from '../hooks/useLogin'
 import { loginSchema } from '../schemas/auth-schemas'
@@ -25,7 +25,7 @@ export function LoginForm({ redirect, onSuccess }: LoginFormProps) {
     event.preventDefault()
     const data = form.validate()
     if (!data) return
-    login.mutate(data, { onError: (error) => toast.error(error.message) })
+    login.mutate(data, { onError: showMutationError })
   }
 
   return (
