@@ -129,7 +129,9 @@ export function ReceiptView({ publicId }: { publicId: string }) {
           />
           <Button variant="outline" asChild>
             {/* A auditoria confere o hash final contra o histórico, sem login (RF-60). */}
-            <a href={receipt.auditPath}>Ver auditoria do lote</a>
+            <Link to="/lots/$id/audit" params={{ id: receipt.lotId }}>
+              Ver auditoria do lote
+            </Link>
           </Button>
         </div>
       </div>
