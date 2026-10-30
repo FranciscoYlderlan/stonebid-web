@@ -32,6 +32,13 @@ type RequestOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   body?: unknown
   signal?: AbortSignal
+  /** Cabeçalhos extras (ex.: `Idempotency-Key`). */
+  headers?: Record<string, string>
+}
+
+/** URL absoluta de um caminho da API (ex.: `imageUrl` relativo, `/lots/{id}/image`). */
+export function apiUrl(path: string): string {
+  return /^https?:\/\//.test(path) ? path : `${env.apiUrl}${path}`
 }
 
 async function parseError(response: Response): Promise<ApiError> {
@@ -54,16 +61,16 @@ async function parseError(response: Response): Promise<ApiError> {
 
 async function request<T>(
   path: string,
-  { method = 'GET', body, signal }: RequestOptions = {},
+  { method = 'GET', body, signal, headers: extraHeaders }: RequestOptions = {},
 ): Promise<T> {
   const token = getSessionToken()
-  const headers = new Headers({ Accept: 'application/json' })
+  const headers = new Headers({ ...extraHeaders, Accept: 'application/json' })
   if (body !== undefined) headers.set('Content-Type', 'application/json')
   if (token) headers.set('Authorization', `Bearer ${token}`)
 
   let response: Response
   try {
-    response = await fetch(`${env.apiUrl}${path}`, {
+    response = await fetch(apiUrl(path), {
       method,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
