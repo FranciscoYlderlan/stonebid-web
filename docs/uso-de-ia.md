@@ -20,7 +20,7 @@ Usei agentes em várias threads e graph engineering, no espírito de "dividir pa
 flowchart TD
     M[("Memória<br/>Obsidian graph")]
     O["Orquestrador"]
-    M -- "lê padrões, planos, decisões e bugs" --> O
+    M -- "lê padrões, workflow, andamento, planos, decisões e bugs" --> O
     O -- "registra resultado e status das tarefas" --> M
     O -- "divide a tarefa" --> I1["Subagente implementador 1"]
     O -- "divide a tarefa" --> I2["Subagente implementador 2"]
@@ -39,6 +39,8 @@ O orquestrador acessa a memória, divide a tarefa entre vários subagentes em pa
 ## O que a memória guarda
 
 - **Padrões** do projeto.
+- **Workflow:** o fluxo de trabalho, com as etapas, quem faz o quê e como orquestrador e subagentes trabalham, do plano ao teste em staging.
+- **Andamento:** o roteiro com as etapas e o status de cada uma, e o "onde parei" de cada sessão, nos diários.
 - **Planos:** as sugestões da IA.
 - **Decisões:** o que eu escolhi.
 - **Bugs:** um bug recorrente fica no histórico com o que ocorreu, por quê, as suposições e como foi resolvido, para não voltar.
