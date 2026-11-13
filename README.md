@@ -2,6 +2,13 @@
 
 Frontend do **Stonebid**, casa de leilões online: vitrine pública, lances ao vivo, comprovante compartilhável e histórico de lances auditável por qualquer pessoa.
 
+## Status: offline
+
+> [!IMPORTANT]
+> **O sistema está offline desde 2026-11-13.** Ele ficou no ar de **2026-10-29 a 2026-11-13**, durante o período de testes e avaliação, com a web na Vercel e a API no Google Cloud. A conta do GCP foi encerrada, então os endereços de produção e staging abaixo deixaram de funcionar. Para usar o projeto, rode a web contra a API local (ver [Como rodar](#como-rodar)).
+
+Endereços usados durante o período de testes:
+
 | Ambiente | Web                                               | API                                                  |
 | -------- | ------------------------------------------------- | ---------------------------------------------------- |
 | Produção | https://stonebid-web.vercel.app                   | https://stonebid-api-7idhzkkvpq-rj.a.run.app         |
